@@ -1,4 +1,4 @@
-# Kotak Neo Trading Application
+# Agentic AI Trading Application
 
 A full-stack algorithmic trading platform built with FastAPI (Backend) and React (Frontend).
 
