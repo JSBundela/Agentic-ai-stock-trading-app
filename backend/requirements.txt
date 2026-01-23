@@ -1,0 +1,13 @@
+fastapi
+uvicorn[stpandas
+httpx
+pydantic
+pydantic-settings
+python-dotenv
+fastapi
+uvicorn
+websockets
+aiosqlite
+python-jose[cryptography]
+passlib[bcrypt]
+multipart

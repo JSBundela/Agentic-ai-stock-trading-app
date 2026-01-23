@@ -1,0 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-obsidian-950: #08080A;
+  --color-obsidian-900: #0C0D11;
+  --color-obsidian-800: #16171D;
+  --color-obsidian-700: #23252E;
+
+  --color-glass-surface: rgba(23, 26, 33, 0.6);
+  --color-glass-border: rgba(255, 255, 255, 0.08);
+  --color-glass-hover: rgba(255, 255, 255, 0.05);
+
+  --color-trading-profit: #00FF9D;
+  --color-trading-loss: #FF3D71;
+  --color-trading-neutral: #3D7BFF;
+
+  --color-brand: #6366F1;
+  --color-brand-glow: rgba(99, 102, 241, 0.3);
+
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  --radius-xl: 12px;
+  --radius-2xl: 20px;
+  --radius-3xl: 32px;
+
+  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@layer base {
+  body {
+    @apply bg-obsidian-950 text-gray-300 font-sans selection:bg-brand/30 selection:text-white antialiased;
+    background-image:
+      radial-gradient(circle at 0% 0%, rgba(99, 102, 241, 0.05) 0%, transparent 50%),
+      radial-gradient(circle at 100% 100%, rgba(0, 255, 157, 0.03) 0%, transparent 50%);
+    background-attachment: fixed;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  .font-display {
+    @apply font-display tracking-tight text-white;
+  }
+
+  .font-mono {
+    @apply font-mono tracking-tighter;
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply bg-glass-surface border border-glass-border backdrop-blur-xl rounded-2xl shadow-2xl relative overflow-hidden;
+  }
+
+  .glass-button {
+    @apply relative overflow-hidden bg-glass-surface border border-glass-border hover:bg-glass-hover hover:border-brand/50 transition-all duration-300 active:scale-95 text-[10px] font-bold uppercase tracking-widest backdrop-blur-md;
+  }
+
+  .neon-glow-profit {
+    text-shadow: 0 0 8px rgba(0, 255, 157, 0.4);
+  }
+
+  .neon-glow-loss {
+    text-shadow: 0 0 8px rgba(255, 61, 113, 0.4);
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-white/10 rounded-full hover:bg-brand/50 transition-colors;
+  }
+}
+
+/* Global scrollbar override */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.5);
+}

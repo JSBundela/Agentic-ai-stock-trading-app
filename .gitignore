@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+.env
+
+# JavaScript
+node_modules/
+dist/
+build/
+.DS_Store
+
+# Agent and Documentation
+.agent/rules/
+kotak_api_documentation.md
+
+# Logs and Caches
+*.log
+session_cache.json
+debug_limits.json
+data/
