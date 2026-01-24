@@ -37,22 +37,15 @@ export interface Holding {
     isCollateral?: boolean;
 }
 
+// CRITICAL: This interface matches the NORMALIZED response from portfolioService.getLimits()
+// NOT the raw Kotak API response (which uses PascalCase)
 export interface Limits {
-    stat: string;
-
-    // Cash
-    netCash: string;          // Net Cash Available
-    cashBal: string;          // Opening Balance?
-
-    // Margin
-    marginUsed: string;       // Total Margin Used
-    marginUtilized?: string;
-
-    // Collateral
-    collateralVal?: string;   // Collateral Value
-
-    // Fallback/Test flags
-    _fallback?: boolean;
+    stat: string;              // API status: "Ok" or "Not_Ok"
+    netCash: string;           // Normalized from API: "Net"
+    marginUsed: string;        // Normalized from API: "MarginUsed"
+    collateralValue: string;   // Normalized from API: "CollateralValue"
+    notionalCash?: string;     // Normalized from API: "NotionalCash"
+    category?: string;         // Normalized from API: "Category"
 }
 
 export interface PortfolioResponse<T> {

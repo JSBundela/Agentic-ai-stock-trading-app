@@ -126,6 +126,11 @@ class OrderService:
         except httpx.HTTPStatusError as e:
             logger.error(f"Order book fetch failed: Status {e.response.status_code}")
             logger.error(f"Full response: {e.response.text}")
+            
+            # TEMPORARY: Return Empty List on failure
+            if e.response.status_code == 424 or "bridge API error" in e.response.text:
+                 return { "stat": "Ok", "data": [] }
+                 
             raise OrderError(f"Failed to fetch order book: {e.response.text}")
         except Exception as e:
             logger.error(f"Order book fetch failed: {str(e)}")

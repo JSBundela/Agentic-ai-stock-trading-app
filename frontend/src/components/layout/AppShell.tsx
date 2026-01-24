@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
+import { AgentChat } from '../agent/AgentChat';
 
 interface AppShellProps {
     children: React.ReactNode;
@@ -46,6 +47,8 @@ export const AppShell: React.FC<AppShellProps> = ({ children }) => {
                     </div>
                 </main>
             </div>
-        </div>
+
+            <AgentChat />
+        </div >
     );
 };

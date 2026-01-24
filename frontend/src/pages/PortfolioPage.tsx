@@ -36,13 +36,18 @@ const PortfolioPage: React.FC = () => {
     const mtm = parseFloat(data?.positions?.totalMtm) || 0;
     const dayGain = parseFloat(data?.holdings?.totalDayGain) || 0;
 
+    // Calculate portfolio value from holdings market value
+    const portfolioValue = (data?.holdings?.data || []).reduce((total: number, holding: any) => {
+        return total + (parseFloat(holding.mktValue || holding.marketValue || 0));
+    }, 0);
+
     return (
         <div className="space-y-8 animate-in fade-in zoom-in-95 duration-700">
             {/* HUD: Intelligence Bar */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <StatCard
                     label="Portfolio Value"
-                    value={formatCurrency(parseFloat(data?.limits?.netCash) + (parseFloat(data?.holdings?.totalMarketValue) || 0))}
+                    value={formatCurrency(portfolioValue)}
                     loading={loading}
                 />
                 <StatCard
@@ -61,7 +66,7 @@ const PortfolioPage: React.FC = () => {
                 />
                 <StatCard
                     label="Exposure Count"
-                    value={(data?.positions?.positions?.length || 0) + (data?.holdings?.holdings?.length || 0)}
+                    value={(data?.positions?.data?.length || 0) + (data?.holdings?.data?.length || 0)}
                     trend="neutral"
                     trendValue="Active"
                     loading={loading}
@@ -96,7 +101,7 @@ const PortfolioPage: React.FC = () => {
             <Card noPadding className="border-white/5 shadow-2xl relative">
                 {activeTab === 'POSITIONS' && (
                     <Table headers={['Instrument', 'Qty', 'Avg Price', 'LTP', 'PnL', 'Actions']}>
-                        {(data?.positions?.positions || []).map((pos: any, i: number) => {
+                        {(data?.positions?.data || []).map((pos: any, i: number) => {
                             const isProfit = parseFloat(pos.urmtom) >= 0;
                             return (
                                 <TableRow key={i}>
@@ -125,7 +130,7 @@ const PortfolioPage: React.FC = () => {
                                 </TableRow>
                             );
                         })}
-                        {!data?.positions?.positions?.length && (
+                        {!(data?.positions?.data || []).length && (
                             <tr><td colSpan={6} className="py-40 text-center"><Activity size={48} className="mx-auto text-gray-800 animate-pulse mb-6" /><p className="text-[10px] text-gray-600 font-bold uppercase tracking-[0.3em]">No Dynamic Exposures</p></td></tr>
                         )}
                     </Table>
@@ -133,7 +138,7 @@ const PortfolioPage: React.FC = () => {
 
                 {activeTab === 'HOLDINGS' && (
                     <Table headers={['Instrument', 'Quantity', 'Avg Cost', 'Mkt Value', 'Day Gain', 'Total Gain']}>
-                        {(data?.holdings?.holdings || []).map((hold: any, i: number) => {
+                        {(data?.holdings?.data || []).map((hold: any, i: number) => {
                             const isProfit = parseFloat(hold.pnl) >= 0;
                             return (
                                 <TableRow key={i}>
@@ -150,7 +155,7 @@ const PortfolioPage: React.FC = () => {
                                 </TableRow>
                             );
                         })}
-                        {!data?.holdings?.holdings?.length && (
+                        {!(data?.holdings?.data || []).length && (
                             <tr><td colSpan={6} className="py-40 text-center"><Briefcase size={48} className="mx-auto text-gray-800 opacity-50 mb-6" /><p className="text-[10px] text-gray-600 font-bold uppercase tracking-[0.3em]">Vault is Empty</p></td></tr>
                         )}
                     </Table>

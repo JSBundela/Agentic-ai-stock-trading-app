@@ -64,8 +64,7 @@ export const OrderEntryForm: React.FC<OrderEntryProps> = ({ symbol, scrip, onOrd
         const unsubscribe = wsService.subscribeQuotes(symbol, (data) => {
             setTick(data);
             if (price === 0 && data.ltp) setPrice(data.ltp);
-            // Default AMO if market is closed, but allow manual override
-            if ((data as any).isAmo && !amoEnabled) setAmoEnabled(true);
+            // AMO is now user-controlled via toggle, not auto-set
         });
 
         portfolioAPI.getLimits().then((res) => {

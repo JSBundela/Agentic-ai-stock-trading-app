@@ -74,41 +74,58 @@ class ConnectionManager:
 
     async def subscribe_client(self, websocket: WebSocket, symbol: str):
         """Register client for a symbol and subscribe in HSM if new."""
-        # 1. Validate symbol via Scrip Master (SINGLE SOURCE OF TRUTH)
-        scrip = scrip_master.get_scrip(symbol)
-        
-        # Fallback: Try without common suffixes (e.g., BEL-EQ -> BEL)
-        if not scrip and "-" in symbol:
-            base_symbol = symbol.split("-")[0]
-            logger.debug(f"Symbol {symbol} not found. Retrying with base: {base_symbol}")
-            scrip = scrip_master.get_scrip(base_symbol)
-            if scrip:
-                logger.info(f"✅ Found match for {symbol} using base symbol {base_symbol}")
-                # Update symbol for local subscription mapping to match what was found
-                symbol = base_symbol
-        
-        if not scrip:
-            logger.warning(f"Rejected local subscription: reason=UNKNOWN_SYMBOL, symbol={symbol}")
-            return
+        subscription_string = ""
+        normalized_symbol = symbol
 
-        # 2. Add to local subscriber sets
-        if symbol not in self.subscriptions:
+        # 0. DIRECT TOKEN SUBSCRIPTION (Bypass Scrip Master)
+        # Used for Indices: "nse_cm|Nifty 50" or "nse_cm|26000"
+        if "|" in symbol:
+            logger.info(f"⚡ [ROUTER] Direct token subscription detected: {symbol}")
+            subscription_string = symbol
+            # Ensure it ends with & for Kotak API if not present (logic below adds it if needed, but standardizing here helps)
+        else:
+            # 1. Validate symbol via Scrip Master (SINGLE SOURCE OF TRUTH)
+            scrip = scrip_master.get_scrip(symbol)
+            
+            # Fallback: Try without common suffixes (e.g., BEL-EQ -> BEL)
+            if not scrip and "-" in symbol:
+                base_symbol = symbol.split("-")[0]
+                logger.debug(f"Symbol {symbol} not found. Retrying with base: {base_symbol}")
+                scrip = scrip_master.get_scrip(base_symbol)
+                if scrip:
+                    logger.info(f"✅ Found match for {symbol} using base symbol {base_symbol}")
+                    normalized_symbol = base_symbol
+            
+            if not scrip:
+                logger.warning(f"Rejected local subscription: reason=UNKNOWN_SYMBOL, symbol={symbol}")
+                return
+            
+            # Construct standard Kotak subscription string
+            subscription_string = f"{scrip['exchangeSegment']}|{scrip['instrumentToken']}"
+
+        # 2. Add to local subscriber sets (use the original requested symbol or normalized one as key)
+        # Note: For direct tokens, we use the token string as the key
+        
+        if normalized_symbol not in self.subscriptions:
             # 3. ENFORCE HSM LIMITS (PHASE 2 MANDATORY)
             if len(self.subscriptions) >= self.MAX_INSTRUMENTS:
                 logger.warning(f"Rejected HSM subscription: reason=MAX_INSTRUMENTS_REACHED, limit={self.MAX_INSTRUMENTS}, symbol={symbol}")
                 await websocket.send_json({"type": "error", "message": "Global HSM subscription limit reached"})
                 return
 
-            self.subscriptions[symbol] = set()
-            # 4. Trigger HSM subscription for this new instrument
-            sub_str = f"{scrip['exchangeSegment']}|{scrip['instrumentToken']}&"
+            self.subscriptions[normalized_symbol] = set()
+            
+            # 4. Trigger HSM subscription
+            if not subscription_string.endswith("&"):
+                subscription_string += "&"
+                
             if kotak_hsm.connected:
-                await kotak_hsm.subscribe(sub_str)
+                await kotak_hsm.subscribe(subscription_string)
             else:
-                logger.warning(f"HSM not connected. Queuing subscription for {symbol}")
+                logger.warning(f"HSM not connected. Queuing subscription for {normalized_symbol}")
         
-        self.subscriptions[symbol].add(websocket)
-        logger.info(f"Client subscribed to {symbol}. Active instruments: {len(self.subscriptions)}")
+        self.subscriptions[normalized_symbol].add(websocket)
+        logger.info(f"Client subscribed to {normalized_symbol}. Active instruments: {len(self.subscriptions)}")
 
     async def broadcast_tick(self, tick: dict):
         """Relay standardized tick to all interested clients."""
@@ -126,7 +143,20 @@ class ConnectionManager:
             for dead in dead_links:
                 self.disconnect(dead)
 
+    async def resubscribe_all(self):
+        """Resubscribe to all active symbols (e.g. after HSM reconnect)."""
+        logger.info(f"🔄 Resubscribing to {len(self.subscriptions)} symbols after HSM reconnect...")
+        for symbol in self.subscriptions:
+            scrip = scrip_master.get_scrip(symbol)
+            if scrip:
+                sub_str = f"{scrip['exchangeSegment']}|{scrip['instrumentToken']}&"
+                if kotak_hsm.connected:
+                    await kotak_hsm.subscribe(sub_str)
+        logger.info("✅ Resubscription complete.")
+
 manager = ConnectionManager()
+# Register callback for auto-resubscription
+kotak_hsm.add_connect_callback(manager.resubscribe_all)
 
 @router.websocket("/market-data")
 async def market_data_websocket(websocket: WebSocket):

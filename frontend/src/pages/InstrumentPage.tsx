@@ -75,13 +75,13 @@ const InstrumentPage: React.FC = () => {
                             <Target size={32} className="text-brand" />
                         </div>
                         <div>
-                            <div className="flex items-center gap-3 mb-1">
-                                <h1 className="text-4xl font-display font-black text-white tracking-tighter uppercase">{symbol}</h1>
+                            <div className="flex items-center gap-3 mb-2">
+                                <h1 className="text-4xl font-display font-black text-white tracking-tight">{scrip?.description || scrip?.companyName || symbol}</h1>
                                 <div className="px-2 py-0.5 rounded-lg bg-brand/10 border border-brand/20 text-[9px] font-black text-brand tracking-widest uppercase">
                                     {scrip?.exchangeSegment}
                                 </div>
                             </div>
-                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.25em]">{scrip?.companyName || scrip?.description}</p>
+                            <p className="text-xs text-gray-500 font-mono tracking-wider">{symbol}</p>
                         </div>
                     </div>
                 </div>

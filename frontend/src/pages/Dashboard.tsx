@@ -1,15 +1,19 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { Card } from '../components/ui/Card';
 import { StatCard } from '../components/ui/StatCard';
 import { Button } from '../components/ui/Button';
 import { Table, TableRow, TableCell } from '../components/ui/Table';
 import { Badge } from '../components/ui/Badge';
-import { portfolioService } from '../services/portfolioService';
-import { orderService } from '../services/orderService';
+// import { portfolioService } from '../services/portfolioService'; // Removed
+// import { orderService } from '../services/orderService'; // Removed
+import { useDashboardData } from '../hooks/useDashboardData';
 import { formatCurrency } from '../utils/formatters';
 import { Activity, ArrowUpRight, ShieldCheck, Zap, Layers } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { marketService } from '../services/marketService';
+import { wsService } from '../services/websocket';
+import { parseSymbol } from '../utils/symbolDecoder';
 
 const containerVariants: any = {
     hidden: { opacity: 0 },
@@ -27,34 +31,116 @@ const itemVariants: any = {
 };
 
 const Dashboard: React.FC = () => {
-    const [data, setData] = useState<any>(null);
-    const [orders, setOrders] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    const { data, orders, loading } = useDashboardData();
+    const [indices, setIndices] = React.useState({
+        nifty: { price: 0, change: 0, pChange: 0 },
+        sensex: { price: 0, change: 0, pChange: 0 }
+    });
 
-    useEffect(() => {
-        const fetchDashboardData = async () => {
+    React.useEffect(() => {
+        let unsubNifty: (() => void) | undefined;
+        let unsubSensex: (() => void) | undefined;
+
+        const connectAndSubscribe = async () => {
             try {
-                const [limits, positions, orderBook] = await Promise.all([
-                    portfolioService.getLimits(),
-                    portfolioService.getPositions(),
-                    orderService.getOrderBook(1)
-                ]);
-                setData({ limits, positions });
-                setOrders((orderBook.data || []).slice(0, 6));
-            } catch (error) {
-                console.error('Dashboard load failed', error);
-            } finally {
-                setLoading(false);
-            }
+                const tokens = ['nse_cm|Nifty 50', 'bse_cm|SENSEX'];
+                const data = await marketService.getQuotes(tokens);
+
+                if (Array.isArray(data) && data.length > 0) {
+                    const niftyData = data.find((i: any) =>
+                        i.exchange_token === 'Nifty 50' ||
+                        i.display_symbol === 'NIFTY 50' ||
+                        i.instrumentName === 'Nifty 50'
+                    );
+                    const sensexData = data.find((i: any) =>
+                        i.exchange_token === 'SENSEX' ||
+                        i.display_symbol === 'SENSEX' ||
+                        i.instrumentName === 'SENSEX'
+                    );
+
+                    if (niftyData) {
+                        setIndices(prev => ({
+                            ...prev, nifty: {
+                                price: parseFloat(niftyData.ltp),
+                                change: parseFloat(niftyData.chn || niftyData.change || 0),
+                                pChange: parseFloat(niftyData.pc || niftyData.pChange || 0)
+                            }
+                        }));
+
+                        const tok = niftyData.instrumentToken || niftyData.exchange_token;
+                        if (tok) unsubNifty = wsService.subscribeQuotes(`nse_cm|${tok}`, (tick) => {
+                            setIndices(prev => ({
+                                ...prev, nifty: {
+                                    price: tick.ltp,
+                                    change: tick.change || prev.nifty.change,
+                                    pChange: tick.per_change || prev.nifty.pChange
+                                }
+                            }));
+                        });
+                    }
+
+                    if (sensexData) {
+                        setIndices(prev => ({
+                            ...prev, sensex: {
+                                price: parseFloat(sensexData.ltp),
+                                change: parseFloat(sensexData.chn || sensexData.change || 0),
+                                pChange: parseFloat(sensexData.pc || sensexData.pChange || 0)
+                            }
+                        }));
+
+                        const tok = sensexData.instrumentToken || sensexData.exchange_token;
+                        if (tok) unsubSensex = wsService.subscribeQuotes(`bse_cm|${tok}`, (tick) => {
+                            setIndices(prev => ({
+                                ...prev, sensex: {
+                                    price: tick.ltp,
+                                    change: tick.change || prev.sensex.change,
+                                    pChange: tick.per_change || prev.sensex.pChange
+                                }
+                            }));
+                        });
+                    }
+                }
+            } catch (error) { console.error('Dashboard Index Error', error); }
         };
 
-        fetchDashboardData();
-        const interval = setInterval(fetchDashboardData, 10000);
-        return () => clearInterval(interval);
+        connectAndSubscribe();
+        return () => { if (unsubNifty) unsubNifty(); if (unsubSensex) unsubSensex(); };
     }, []);
+
+    // DIAGNOSTIC LOGGING: Track data flow from API → UI
+    React.useEffect(() => {
+        if (data?.limits) {
+            console.log('[DASHBOARD] ═══════════════════════════════════');
+            console.log('[DASHBOARD] Raw data object:', data);
+            console.log('[DASHBOARD] Limits object:', data.limits);
+            console.log('[DASHBOARD] Data Flow Trace:', {
+                'API Response (normalized)': data.limits,
+                'Available Funds Field (netCash)': data.limits.netCash,
+                'Used Margin Field (marginUsed)': data.limits.marginUsed,
+                'Collateral Field (collateralValue)': data.limits.collateralValue,
+                'Parsed Available Funds': parseFloat(data.limits.netCash),
+                'Parsed Used Margin': parseFloat(data.limits.marginUsed),
+                'Final Display Value (Available)': `₹${parseFloat(data.limits.netCash).toFixed(2)}`,
+                'Final Display Value (Margin)': `₹${parseFloat(data.limits.marginUsed).toFixed(2)}`
+            });
+            console.log('[DASHBOARD] ═══════════════════════════════════');
+        }
+    }, [data]);
 
     const mtm = parseFloat(data?.positions?.totalMtm) || 0;
     const availableFunds = parseFloat(data?.limits?.netCash) || 0;
+
+    // Calculate portfolio value from holdings (NOT from limits)
+    const portfolioValue = (data?.holdings?.data || []).reduce((total: number, holding: any) => {
+        const mktVal = parseFloat(holding.mktValue || holding.marketValue || 0);
+        return total + mktVal;
+    }, 0);
+
+    // DEBUG: Log portfolio calculation
+    React.useEffect(() => {
+        console.log('[PORTFOLIO DEBUG] Holdings data:', data?.holdings);
+        console.log('[PORTFOLIO DEBUG] Calculated portfolio value:', portfolioValue);
+    }, [data?.holdings, portfolioValue]);
 
     return (
         <motion.div
@@ -80,10 +166,10 @@ const Dashboard: React.FC = () => {
                     loading={loading}
                 />
                 <StatCard
-                    label="Open Positions"
-                    value={data?.positions?.positions?.length || 0}
+                    label="Margin from Shares"
+                    value={formatCurrency(parseFloat(data?.limits?.collateralValue) || 0)}
                     trend="neutral"
-                    trendValue="Active"
+                    trendValue="Collateral"
                     loading={loading}
                 />
                 <StatCard
@@ -107,27 +193,43 @@ const Dashboard: React.FC = () => {
                             </Link>
                         }
                     >
-                        <Table headers={['Time', 'Instrument', 'Type', 'Status', 'LTP']}>
+                        <Table headers={['Time', 'Instrument', 'Type', 'Status', 'Price']}>
                             {orders.map((order, i) => (
                                 <TableRow key={i}>
-                                    <TableCell className="text-gray-500 font-mono text-[10px]">{order.ordTime || '--:--'}</TableCell>
+                                    <TableCell className="text-gray-500 font-mono text-[10px]">{order.ordTime || order.ordDtTm || '--:--'}</TableCell>
                                     <TableCell>
                                         <div className="flex flex-col">
-                                            <span className="font-display font-black text-white tracking-tight uppercase">{order.tsym}</span>
-                                            <span className="text-[9px] text-gray-500 font-bold tracking-widest uppercase">{order.exch}</span>
+                                            <span className="font-display font-black text-white tracking-tight uppercase">
+                                                {parseSymbol(order.tsym || order.trdSym || '').companyName || order.tsym || order.trdSym || '--'}
+                                            </span>
+                                            <span className="text-[9px] text-gray-500 font-bold tracking-widest uppercase">{order.exch || order.exSeg || 'NSE'}</span>
                                         </div>
                                     </TableCell>
                                     <TableCell>
-                                        <Badge variant={order.trantype === 'BUY' ? 'success' : 'danger'}>
-                                            {order.trantype}
-                                        </Badge>
+                                        {(order.trnsTp || order.trantype) ? (
+                                            (() => {
+                                                const type = (order.trnsTp || order.trantype).toUpperCase();
+                                                const normalizedType = type === 'B' ? 'BUY' : type === 'S' ? 'SELL' : type;
+                                                return (
+                                                    <Badge variant={normalizedType === 'BUY' ? 'success' : 'danger'}>
+                                                        {normalizedType}
+                                                    </Badge>
+                                                );
+                                            })()
+                                        ) : (
+                                            <span className="text-[10px] text-gray-600">-</span>
+                                        )}
                                     </TableCell>
                                     <TableCell>
-                                        <span className={`text-[10px] font-bold uppercase tracking-widest ${order.status === 'complete' ? 'text-trading-profit' :
-                                            order.status === 'rejected' ? 'text-trading-loss' : 'text-gray-400'
-                                            }`}>
-                                            {order.status}
-                                        </span>
+                                        {(order.ordSt || order.status) ? (
+                                            <span className={`text-[10px] font-bold uppercase tracking-widest ${(order.ordSt || order.status) === 'complete' || (order.ordSt || order.status) === 'traded' ? 'text-trading-profit' :
+                                                (order.ordSt || order.status) === 'rejected' ? 'text-trading-loss' : 'text-gray-400'
+                                                }`}>
+                                                {order.ordSt || order.status}
+                                            </span>
+                                        ) : (
+                                            <span className="text-[10px] text-gray-600">-</span>
+                                        )}
                                     </TableCell>
                                     <TableCell className="font-mono text-white text-right">{formatCurrency(order.prc)}</TableCell>
                                 </TableRow>
@@ -144,21 +246,34 @@ const Dashboard: React.FC = () => {
                     </Card>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <Card title="Market Day Breadth" className="bg-gradient-to-br from-brand/5 to-transparent">
-                            <div className="flex items-center gap-6">
-                                <div className="p-4 bg-trading-profit/10 rounded-2xl border border-trading-profit/20">
-                                    <ArrowUpRight className="text-trading-profit" size={24} />
-                                </div>
+                        {/* Live Index Cards */}
+                        <Card title="NIFTY 50" className="bg-gradient-to-br from-brand/5 to-transparent">
+                            <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Trend Analysis</p>
-                                    <h4 className="text-lg font-display font-black text-white">BULLISH SENTIMENT</h4>
+                                    <h4 className="text-2xl font-display font-black text-white">{formatCurrency(indices.nifty.price)}</h4>
+                                    <div className={`flex items-center gap-2 mt-1 ${indices.nifty.change >= 0 ? 'text-trading-profit' : 'text-trading-loss'}`}>
+                                        <span className="text-xs font-bold">{indices.nifty.change >= 0 ? '+' : ''}{indices.nifty.change.toFixed(2)}</span>
+                                        <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 bg-white/5 rounded">
+                                            {indices.nifty.pChange.toFixed(2)}%
+                                        </span>
+                                    </div>
                                 </div>
+                                <Activity className={indices.nifty.change >= 0 ? 'text-trading-profit' : 'text-trading-loss'} size={32} />
                             </div>
                         </Card>
-                        <Card title="Quick Actions">
-                            <div className="grid grid-cols-2 gap-3">
-                                <Button variant="primary" size="sm" className="w-full"><Zap size={14} className="mr-1" /> BUY</Button>
-                                <Button variant="danger" size="sm" className="w-full"><ShieldCheck size={14} className="mr-1" /> SELL</Button>
+
+                        <Card title="SENSEX" className="bg-gradient-to-br from-brand/5 to-transparent">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <h4 className="text-2xl font-display font-black text-white">{formatCurrency(indices.sensex.price)}</h4>
+                                    <div className={`flex items-center gap-2 mt-1 ${indices.sensex.change >= 0 ? 'text-trading-profit' : 'text-trading-loss'}`}>
+                                        <span className="text-xs font-bold">{indices.sensex.change >= 0 ? '+' : ''}{indices.sensex.change.toFixed(2)}</span>
+                                        <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 bg-white/5 rounded">
+                                            {indices.sensex.pChange.toFixed(2)}%
+                                        </span>
+                                    </div>
+                                </div>
+                                <Layers className={indices.sensex.change >= 0 ? 'text-trading-profit' : 'text-trading-loss'} size={32} />
                             </div>
                         </Card>
                     </div>
@@ -166,9 +281,26 @@ const Dashboard: React.FC = () => {
 
                 {/* Sidebar Intelligence */}
                 <motion.div variants={itemVariants} className="xl:col-span-4 space-y-8" {...({} as any)}>
+                    <Card title="Portfolio Summary">
+                        <div className="space-y-4">
+                            <div className="flex justify-between items-center pb-4 border-b border-glass-border">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Portfolio Value</span>
+                                <span className="text-xl font-display font-black text-white">{formatCurrency(portfolioValue)}</span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Holdings Count</span>
+                                <span className="text-sm font-mono text-white">{(data?.holdings?.data || []).length}</span>
+                            </div>
+                            <div className="flex justify-between items-center pb-4 border-b border-glass-border">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500">Positions Count</span>
+                                <span className="text-sm font-mono text-white">{(data?.positions?.data || []).length}</span>
+                            </div>
+                        </div>
+                    </Card>
+
                     <Card title="Top Exposure">
                         <div className="space-y-6">
-                            {(data?.positions?.positions || []).slice(0, 3).map((pos: any, i: number) => (
+                            {(data?.positions?.data || []).slice(0, 3).map((pos: any, i: number) => (
                                 <div key={i} className="flex justify-between items-center group/pos">
                                     <div className="flex items-center gap-4">
                                         <div className="w-10 h-10 rounded-xl bg-obsidian-700 flex items-center justify-center border border-glass-border group-hover/pos:border-brand/50 transition-colors">
@@ -192,7 +324,7 @@ const Dashboard: React.FC = () => {
                                     </div>
                                 </div>
                             ))}
-                            {!data?.positions?.positions?.length && (
+                            {!(data?.positions?.data || []).length && (
                                 <div className="flex flex-col items-center py-10 opacity-50">
                                     <Layers size={32} className="text-gray-700 mb-2" />
                                     <p className="text-[10px] text-gray-600 font-bold uppercase tracking-widest text-center">No Active Exposure</p>

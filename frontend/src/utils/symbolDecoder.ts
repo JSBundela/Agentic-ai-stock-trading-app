@@ -61,6 +61,18 @@ async function fetchScrip(symbol: string): Promise<any> {
  * Parse symbol using Scrip Master Ground Truth
  */
 export function parseSymbol(symbol: string, providedScrip?: any): ParsedInstrument {
+    if (!symbol || typeof symbol !== 'string') {
+        return {
+            symbol: 'UNKNOWN',
+            baseSymbol: 'UNKNOWN',
+            instrumentType: 'UNKNOWN',
+            isDerivative: false,
+            displayName: 'UNKNOWN',
+            isVerified: false,
+            exchange: '',
+            lotSize: 1
+        };
+    }
     const s = symbol.trim();
     const scrip = providedScrip || scripCache.get(s);
 

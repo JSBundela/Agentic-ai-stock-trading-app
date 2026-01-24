@@ -35,6 +35,17 @@ CREATE TABLE IF NOT EXISTS order_history (
 CREATE INDEX IF NOT EXISTS idx_order_datetime ON order_history(order_datetime);
 CREATE INDEX IF NOT EXISTS idx_trading_symbol ON order_history(trading_symbol);
 CREATE INDEX IF NOT EXISTS idx_status ON order_history(status);
+
+CREATE TABLE IF NOT EXISTS agent_memory (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    session_id TEXT NOT NULL,
+    role TEXT NOT NULL, -- 'user' or 'assistant'
+    content TEXT NOT NULL,
+    agent_name TEXT, -- 'Orchestrator', 'MarketExplainer', etc.
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_session_id ON agent_memory(session_id);
 """
 
 

@@ -17,9 +17,10 @@ async def search_scrips(q: str = Query(..., min_length=1, description="Search qu
     df = scrip_master.scrip_data
     query = q.upper()
     
-    # Match symbols or company names
+    # Match against: tradingSymbol (index), companyName, and description (full company name)
     mask = (df.index.str.contains(query, case=False, na=False)) | \
-           (df['companyName'].str.contains(query, case=False, na=False))
+           (df['companyName'].str.contains(query, case=False, na=False)) | \
+           (df['description'].str.contains(query, case=False, na=False))
     matches = df[mask]
     
     # Reset index to get tradingSymbol as a column for result extraction

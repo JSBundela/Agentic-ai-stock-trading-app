@@ -1,13 +1,17 @@
 fastapi
-uvicorn[stpandas
+uvicorn[standard]
+pandas
 httpx
 pydantic
 pydantic-settings
 python-dotenv
-fastapi
-uvicorn
 websockets
 aiosqlite
 python-jose[cryptography]
 passlib[bcrypt]
 multipart
+
+# Agentic AI dependencies
+langgraph>=0.0.20
+langchain-core>=0.1.0
+duckduckgo-search>=4.0.0

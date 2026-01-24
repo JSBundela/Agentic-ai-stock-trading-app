@@ -41,6 +41,8 @@ app.include_router(portfolio_router)
 app.include_router(scripmaster_router)
 app.include_router(websocket_router)
 app.include_router(historical_router)
+from app.agents.router import router as agent_router
+app.include_router(agent_router)
 
 async def _ensure_hsm_connected():
     """Connect to Kotak HSM using cached session (Trade preferred)."""

@@ -18,6 +18,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({ symbol, onOrderPlaced }) =
     const [orderType, setOrderType] = useState('LIMIT');
     const [quantity, setQuantity] = useState(1);
     const [price, setPrice] = useState(0);
+    const [amoEnabled, setAmoEnabled] = useState(false);
     const [loading, setLoading] = useState(false);
     const [funds, setFunds] = useState('0.00');
     const [ltp, setLtp] = useState(0);
@@ -45,10 +46,12 @@ export const OrderForm: React.FC<OrderFormProps> = ({ symbol, onOrderPlaced }) =
                 product_type: productType,
                 quantity,
                 price: orderType === 'MARKET' ? 0 : price,
+                amo: amoEnabled,
             });
             onOrderPlaced?.();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Order failed', error);
+            alert(`Order Failed: ${error.response?.data?.detail || error.message}`);
         } finally {
             setLoading(false);
         }
@@ -144,6 +147,23 @@ export const OrderForm: React.FC<OrderFormProps> = ({ symbol, onOrderPlaced }) =
                             />
                         </div>
                     </div>
+                </div>
+
+                {/* AMO Toggle */}
+                <div className="flex items-center justify-between p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl">
+                    <div>
+                        <p className="text-xs font-bold text-amber-500 uppercase tracking-widest">After Market Order</p>
+                        <p className="text-[9px] text-amber-500/70 mt-0.5">Place order outside market hours</p>
+                    </div>
+                    <button
+                        onClick={() => setAmoEnabled(!amoEnabled)}
+                        className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${amoEnabled
+                            ? 'bg-amber-500/20 border-amber-500 text-amber-500'
+                            : 'bg-white/5 border-white/10 text-gray-500 hover:border-white/20'
+                            }`}
+                    >
+                        {amoEnabled ? 'ON' : 'OFF'}
+                    </button>
                 </div>
 
                 {/* Margin Calculator */}

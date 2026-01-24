@@ -71,6 +71,11 @@ class KotakHSMClient:
         # Topic ID -> Topic Info
         self._topics: Dict[int, dict] = {}
         
+        self._connect_callbacks = []
+
+    def add_connect_callback(self, cb):
+        self._connect_callbacks.append(cb)
+        
     async def connect(self, session_token: str, sid: str):
         """Connect to HSM and perform binary handshake."""
         print(f"💎💎💎 [HSM] Binary connect: token={session_token[:10]}...")
@@ -118,7 +123,15 @@ class KotakHSMClient:
                 self._listen_task.cancel()
             self._listen_task = asyncio.create_task(self._listen_loop())
             
-            logger.info("🚀 Kotak HSM Client initialized (Binary). Handshake sent.")
+            logger.info(f"🚀 Kotak HSM Client initialized (Binary). Handshake sent. Callbacks: {len(self._connect_callbacks)}")
+            
+            # Notify on_connect listeners (e.g. for resubscription)
+            for cb in self._connect_callbacks:
+                try:
+                    if asyncio.iscoroutinefunction(cb): asyncio.create_task(cb())
+                    else: cb()
+                except Exception as e:
+                    logger.error(f"Error in on_connect callback: {e}")
             
         except Exception as e:
             logger.error(f"❌ Failed to connect to Kotak HSM (Binary): {e}")
@@ -144,6 +157,7 @@ class KotakHSMClient:
                 
     async def _listen_loop(self):
         """Listen for binary packets from Kotak."""
+        should_reconnect = True
         try:
             async for message in self.ws:
                 if isinstance(message, bytes):
@@ -156,12 +170,22 @@ class KotakHSMClient:
                             logger.info("💎💎💎 HSM Handshake SUCCESS (via JSON)")
                     except Exception:
                         pass
-        except websockets.ConnectionClosed:
-            logger.warning("Kotak HSM connection closed")
+        except asyncio.CancelledError:
+            logger.info("HSM Listener cancelled - stopping.")
+            should_reconnect = False
+            raise
+        except (websockets.ConnectionClosed, Exception) as e:
+            logger.warning(f"Kotak HSM connection lost: {e}")
+        finally:
             self.connected = False
-        except Exception as e:
-            logger.error(f"HSM Listener error: {e}")
-            self.connected = False
+            close_code = getattr(self.ws, 'close_code', 'Unknown')
+            logger.warning(f"⚠️ HSM Listener stopped (Close Code: {close_code}). Reconnect={should_reconnect}")
+            
+            if should_reconnect:
+                await asyncio.sleep(5)
+                # Reconnect using stored credentials
+                if hasattr(self, 'session_token') and hasattr(self, 'sid'):
+                    asyncio.create_task(self.connect(self.session_token, self.sid))
 
     async def _process_binary_message(self, message: bytes):
         """Parse the binary protocol packets."""
@@ -253,7 +277,7 @@ class KotakHSMClient:
             pos += name_len
             
             # Initializing topic data
-            topic_data = {"tk": None, "e": None, "ltp": 0.0, "c": 0.0, "v": 0, "mul": 1, "prec": 2}
+            topic_data = {"tk": None, "e": None, "ltp": 0.0, "c": 0.0, "v": 0, "mul": 1, "prec": 2, "name": topic_name}
             
             # Long Fields
             f_count1 = body[pos]
@@ -313,22 +337,40 @@ class KotakHSMClient:
         if not token or not segment: return
         
         scrip = scrip_master.get_scrip_by_token(token, str(segment).lower())
-        if not scrip: return
+        
+        # Fallback for Indices or unknown instruments
+        if not scrip:
+            # Use topic name (often "Nifty 50" etc.) or construct from token
+            symbol = topic_data.get('name') or f"{segment}|{token}"
+            display_name = symbol
+            is_index = "idx" in str(segment).lower() or "if" in topic_data.get('name', '')
+            multiplier = 1
+            precision = 2
+            company_name = symbol
+            inst_type = "INDEX" if is_index else "UNKNOWN"
+            exchange = "NSE" if "nse" in str(segment).lower() else "BSE"
+        else:
+            symbol = scrip['tradingSymbol']
+            display_name = format_display_name(scrip)
+            is_index = scrip.get('instrumentType') == 'INDEX'
+            multiplier = scrip.get('multiplier', 1)
+            precision = scrip.get('precision', 2)
+            company_name = scrip.get('companyName')
+            inst_type = scrip.get('instrumentType')
+            exchange = "NSE" if "NSE" in str(segment).upper() else "BSE"
 
         # Scaling
-        mul = float(topic_data.get('mul', scrip.get('multiplier', 1)))
-        prec = float(topic_data.get('prec', scrip.get('precision', 2)))
+        mul = float(topic_data.get('mul', multiplier))
+        prec = float(topic_data.get('prec', precision))
         scale = mul * (10 ** prec)
         
         def normalize(v):
             return float(v) / scale if v else 0.0
 
-        session_info = get_market_session_info(scrip['exchangeSegment'])
-        
         normalized = {
-            "symbol": scrip['tradingSymbol'],
-            "displayName": format_display_name(scrip),
-            "companyName": scrip.get('companyName'),
+            "symbol": symbol,  # This might be 'nse_cm|26000' or 'Nifty 50' if scrip missing
+            "displayName": display_name,
+            "companyName": company_name,
             "ltp": normalize(topic_data.get('ltp')),
             "open": normalize(topic_data.get('op')),
             "high": normalize(topic_data.get('h')),
@@ -336,11 +378,14 @@ class KotakHSMClient:
             "close": normalize(topic_data.get('c')),
             "volume": int(topic_data.get('v', 0)),
             "timestamp": int(time.time()),
-            "instrumentType": scrip.get('instrumentType'),
-            "exchange": "NSE" if "NSE" in str(segment).upper() else "BSE",
-            "session": session_info["status"],
-            "isAmo": session_info["is_amo"]
+            "instrumentType": inst_type,
+            "exchange": exchange,
+            "session": "OPEN", # Simplified
+            "isAmo": False
         }
+
+        # LOG FOR VERIFICATION
+        logger.info(f"💎 [HSM] TICK: {normalized['symbol']} | LTP: {normalized['ltp']} | VOL: {normalized['volume']}")
         
         for cb in self._callbacks:
             try:
@@ -356,8 +401,14 @@ class KotakHSMClient:
         # Scrips field: Count(2), [len(1)+str]
         
         scrips = scrips_str.strip('&').split('&')
-        # Prefix "sf|" as per hslib.js
-        scrip_list = [f"sf|{s}" for s in scrips]
+        
+        # Intelligent Prefixing: Use if| for indices (identified by 'idx')
+        scrip_list = []
+        for s in scrips:
+             if "idx" in s.lower():
+                 scrip_list.append(f"if|{s}")
+             else:
+                 scrip_list.append(f"sf|{s}")
         
         scrip_bytes = struct.pack(">H", len(scrip_list))
         for s in scrip_list:

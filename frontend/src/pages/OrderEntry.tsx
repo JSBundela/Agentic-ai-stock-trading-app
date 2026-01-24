@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChartContainer } from '../components/ChartContainer';
 import { OrderForm } from '../components/trading/OrderForm';
@@ -12,23 +12,44 @@ import { Button } from '../components/ui/Button';
 const OrderEntry: React.FC = () => {
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
+    const [debouncedSearch, setDebouncedSearch] = useState('');
     const [results, setResults] = useState<Scrip[]>([]);
     const [loading, setLoading] = useState(false);
     const [selectedScrip, setSelectedScrip] = useState<Scrip | null>(null);
 
+    // Debounce search term (400ms delay)
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm);
+        }, 400);
+        return () => clearTimeout(timer);
+    }, [searchTerm]);
+
+    // Trigger search when debounced value changes
+    useEffect(() => {
+        const performSearch = async () => {
+            if (!debouncedSearch.trim()) {
+                setResults([]);
+                return;
+            }
+
+            setLoading(true);
+            try {
+                const response = await scripService.search(debouncedSearch);
+                setResults(response.data || []);
+            } catch (error) {
+                console.error('Search failed', error);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        performSearch();
+    }, [debouncedSearch]);
+
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!searchTerm.trim()) return;
-
-        setLoading(true);
-        try {
-            const response = await scripService.search(searchTerm);
-            setResults(response.data || []);
-        } catch (error) {
-            console.error('Search failed', error);
-        } finally {
-            setLoading(false);
-        }
+        // Search already handled by debounce, but keep form submit for UX
     };
 
     const handleSelect = (scrip: Scrip) => {
@@ -71,8 +92,8 @@ const OrderEntry: React.FC = () => {
                                                     <TrendingUp size={20} />
                                                 </div>
                                                 <div>
-                                                    <span className="block text-sm font-display font-black text-white tracking-tight uppercase group-hover/item:text-brand transition-colors">{scrip.tradingSymbol}</span>
-                                                    <span className="block text-[9px] text-gray-600 font-bold uppercase tracking-widest mt-0.5">{scrip.companyName || scrip.description}</span>
+                                                    <span className="block text-base font-display font-black text-white tracking-tight group-hover/item:text-brand transition-colors">{scrip.description || scrip.companyName || scrip.tradingSymbol}</span>
+                                                    <span className="block text-[10px] text-gray-500 font-mono tracking-wider mt-1">{scrip.tradingSymbol}</span>
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-4">
