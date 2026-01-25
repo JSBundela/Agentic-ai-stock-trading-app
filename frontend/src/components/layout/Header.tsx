@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Bell, Search, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { formatCurrency } from '../../utils/formatters';
+import { marketService } from '../../services/marketService';
 
 export const Header: React.FC = () => {
     const { user } = useAuth();
@@ -13,26 +14,41 @@ export const Header: React.FC = () => {
     useEffect(() => {
         const fetchAndUpdateIndices = async () => {
             try {
-                // Use demo mode endpoint (markets are closed)
-                const response = await fetch('http://localhost:8000/market/indices/live?demo=true');
-                const result = await response.json();
+                // Use SAME approach as Dashboard (direct market service)
+                const tokens = ['nse_cm|Nifty 50', 'bse_cm|SENSEX'];
+                const data = await marketService.getQuotes(tokens);
 
-                if (result.success && result.data) {
-                    const nifty = result.data.NIFTY_50;
-                    const sensex = result.data.SENSEX;
+                if (Array.isArray(data) && data.length > 0) {
+                    const niftyData = data.find((i: any) =>
+                        i.exchange_token === 'Nifty 50' ||
+                        i.display_symbol === 'NIFTY 50' ||
+                        i.instrumentName === 'Nifty 50'
+                    );
+                    const sensexData = data.find((i: any) =>
+                        i.exchange_token === 'SENSEX' ||
+                        i.display_symbol === 'SENSEX' ||
+                        i.instrumentName === 'SENSEX'
+                    );
 
-                    setIndices({
-                        nifty: {
-                            price: nifty.ltp || 25048.65,
-                            change: nifty.change || -241.25,
-                            pChange: nifty.percent_change || -0.96
-                        },
-                        sensex: {
-                            price: sensex.ltp || 81537.70,
-                            change: sensex.change || -769.67,
-                            pChange: sensex.percent_change || -0.94
-                        }
-                    });
+                    if (niftyData) {
+                        setIndices(prev => ({
+                            ...prev, nifty: {
+                                price: parseFloat(niftyData.ltp),
+                                change: parseFloat(niftyData.chn || niftyData.change || 0),
+                                pChange: parseFloat(niftyData.pc || niftyData.pChange || 0)
+                            }
+                        }));
+                    }
+
+                    if (sensexData) {
+                        setIndices(prev => ({
+                            ...prev, sensex: {
+                                price: parseFloat(sensexData.ltp),
+                                change: parseFloat(sensexData.chn || sensexData.change || 0),
+                                pChange: parseFloat(sensexData.pc || sensexData.pChange || 0)
+                            }
+                        }));
+                    }
                 }
             } catch (error) {
                 console.error('[HEADER] Error fetching indices:', error);
@@ -42,8 +58,8 @@ export const Header: React.FC = () => {
         // Initial fetch
         fetchAndUpdateIndices();
 
-        // Update every 2 seconds for live feel
-        const interval = setInterval(fetchAndUpdateIndices, 2000);
+        // Update every 30 seconds (not too aggressive)
+        const interval = setInterval(fetchAndUpdateIndices, 30000);
 
         return () => clearInterval(interval);
     }, []);
