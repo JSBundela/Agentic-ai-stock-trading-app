@@ -222,12 +222,13 @@ export const Header: React.FC = () => {
                     <span className="absolute top-2 right-2 w-2 h-2 bg-brand rounded-full border-2 border-obsidian-950 shadow-[0_0_8px_#6366F1]" />
                 </button>
 
-                {isDemoMode && (
+                {/* Demo mode badge hidden as per user request */}
+                {/* {isDemoMode && (
                     <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-lg">
                         <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
                         <span className="text-[9px] font-bold uppercase tracking-wider text-amber-300">Demo Mode</span>
                     </div>
-                )}
+                )} */}
 
                 <div className="flex items-center gap-4 pl-6 border-l border-glass-border">
                     <div className="text-right hidden sm:block">
