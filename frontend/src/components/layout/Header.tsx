@@ -193,19 +193,19 @@ export const Header: React.FC = () => {
                         <span className="text-[9px] font-bold uppercase tracking-wider text-amber-300">Demo Mode</span>
                     </div>
                 )}
-            </div>
 
-            <div className="flex items-center gap-4 pl-6 border-l border-glass-border">
-                <div className="text-right hidden sm:block">
-                    <p className="text-xs font-display font-black text-white uppercase tracking-tight">
-                        {user?.name || 'Guest'}
-                    </p>
-                </div>
-                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-brand to-indigo-800 flex items-center justify-center border border-white/20 shadow-lg shadow-brand/20">
-                    <User size={20} className="text-white" />
+                <div className="flex items-center gap-4 pl-6 border-l border-glass-border">
+                    <div className="text-right hidden sm:block">
+                        <p className="text-xs font-display font-black text-white uppercase tracking-tight">
+                            {user?.name || 'Guest'}
+                        </p>
+                    </div>
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-brand to-indigo-800 flex items-center justify-center border border-white/20 shadow-lg shadow-brand/20">
+                        <User size={20} className="text-white" />
+                    </div>
                 </div>
             </div>
-        </div>
-        </header >
+        </header>
     );
 };
+```
