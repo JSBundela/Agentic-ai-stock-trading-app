@@ -1,18 +1,18 @@
-fastapi
-uvicorn[standard]
-pandas
-httpx
-pydantic
-pydantic-settings
-python-dotenv
-websockets
-aiosqlite
-python-jose[cryptography]
-passlib[bcrypt]
-multipart
+fastapi==0.128.0
+uvicorn[standard]==0.40.0
+pandas==2.3.3
+httpx==0.28.1
+pydantic==2.12.5
+pydantic-settings==2.12.0
+python-dotenv==1.2.1
+websockets==15.0.1
+aiosqlite==0.22.1
+python-jose[cryptography]==3.5.0
+passlib[bcrypt]==1.7.4
+multipart==1.3.0
 
 # Agentic AI dependencies
-langgraph>=0.0.20
-langchain-core>=0.1.0
-duckduckgo-search>=4.0.0
-pytz
+langgraph>=1.0.7
+langchain-core>=1.2.7
+duckduckgo-search>=6.0.0
+pytz==2025.2
