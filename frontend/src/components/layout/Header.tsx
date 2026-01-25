@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Bell, Search, User, Zap } from 'lucide-react';
+import { Bell, Search, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { wsService } from '../../services/websocket';
 import { formatCurrency } from '../../utils/formatters';
