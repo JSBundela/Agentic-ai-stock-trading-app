@@ -41,11 +41,24 @@ class ScripMasterService:
             
             logger.info(f"Fetching ALL segment file paths from: {file_paths_url}")
             
-            response = await client.get(file_paths_url, headers={
-                "Authorization": settings.KOTAK_ACCESS_TOKEN
-            })
-            response.raise_for_status()
-            
+            try:
+                response = await client.get(file_paths_url, headers={
+                    "Authorization": settings.KOTAK_ACCESS_TOKEN
+                })
+                response.raise_for_status()
+            except httpx.HTTPStatusError as e:
+                # Handle 404 on startup smoothly
+                if e.response.status_code == 404:
+                    if "gw-napi" in base_url:
+                        logger.warning(f"Startup: Default scrip master URL not accessible (404). Waiting for user login to refresh base URL.")
+                        return 
+                    else:
+                        # Real failure if we have a valid URL
+                        logger.error(f"Failed to fetch file paths from {base_url}: 404 Not Found")
+                        raise
+                else:
+                    raise
+
             file_paths_data = response.json()
             
             # Step 2: Extract ALL CSV URLs dynamically (no hardcoding)

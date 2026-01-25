@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { portfolioService } from '../services/portfolioService';
 import { orderService } from '../services/orderService';
+import { useAuth } from '../context/AuthContext';
 
 // Module-level cache (persists as long as the app is loaded)
 let dashboardCache: {
@@ -10,14 +11,22 @@ let dashboardCache: {
 } | null = null;
 
 export const useDashboardData = () => {
+    const { isAuthenticated } = useAuth();
     const [data, setData] = useState<any>(dashboardCache?.data || null);
     const [orders, setOrders] = useState<any[]>(dashboardCache?.orders || []);
     const [loading, setLoading] = useState(!dashboardCache);
 
     useEffect(() => {
         let isMounted = true;
+        let interval: any = null;
 
         const fetchDashboardData = async () => {
+            // Skip fetching if not authenticated
+            if (!isAuthenticated) {
+                if (isMounted) setLoading(false);
+                return;
+            }
+
             try {
                 // Fetch fresh data (including holdings for portfolio value calculation)
                 const results = await Promise.allSettled([
@@ -54,15 +63,20 @@ export const useDashboardData = () => {
             }
         };
 
-        // Always fetch fresh data on mount (SWR pattern)
-        fetchDashboardData();
+        // Fetch immediately if authenticated
+        if (isAuthenticated) {
+            fetchDashboardData();
+            // Poll every 10s
+            interval = setInterval(fetchDashboardData, 10000);
+        } else {
+            setLoading(false);
+        }
 
-        const interval = setInterval(fetchDashboardData, 10000);
         return () => {
             isMounted = false;
-            clearInterval(interval);
+            if (interval) clearInterval(interval);
         };
-    }, []);
+    }, [isAuthenticated]); // Re-run when auth state changes
 
     return { data, orders, loading };
 };
