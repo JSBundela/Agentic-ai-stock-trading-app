@@ -52,9 +52,9 @@ export interface QuotesAPIResponse {
  */
 export async function fetchQuotes(symbol: string, exchange: string = 'nse_cm'): Promise<QuotesAPIResponse[]> {
     console.group('🔵 Quotes API Fetch');
-    console.log('Symbol:', symbol);
-    console.log('Exchange:', exchange);
-    console.log('Endpoint: POST /market/quotes');
+    // console.log('Symbol:', symbol);
+    // console.log('Exchange:', exchange);
+    // console.log('Endpoint: POST /market/quotes');
 
     try {
         const response = await apiClient.post('/market/quotes', {
@@ -63,46 +63,46 @@ export async function fetchQuotes(symbol: string, exchange: string = 'nse_cm'): 
 
         const data = response.data;
 
-        console.log('✅ RAW API RESPONSE:', JSON.stringify(data, null, 2));
-        console.log('---');
-        console.log('Response Type:', Array.isArray(data) ? 'Array' : typeof data);
-        console.log('Response Length:', Array.isArray(data) ? data.length : 'N/A');
+        // console.log('✅ RAW API RESPONSE:', JSON.stringify(data, null, 2));
+        // console.log('---');
+        // console.log('Response Type:', Array.isArray(data) ? 'Array' : typeof data);
+        // console.log('Response Length:', Array.isArray(data) ? data.length : 'N/A');
 
         if (Array.isArray(data) && data.length > 0) {
             const quote = data[0];
 
             // Log key fields for verification
             console.group('📊 Verified Fields');
-            console.log('LTP:', quote.ltp);
-            console.log('Change:', quote.change);
-            console.log('% Change:', quote.per_change);
-            console.log('Display Symbol:', quote.display_symbol);
-            console.log('Exchange:', quote.exchange);
-            console.log('Last Update:', quote.lstup_time);
+            // console.log('LTP:', quote.ltp);
+            // console.log('Change:', quote.change);
+            // console.log('% Change:', quote.per_change);
+            // console.log('Display Symbol:', quote.display_symbol);
+            // console.log('Exchange:', quote.exchange);
+            // console.log('Last Update:', quote.lstup_time);
             console.groupEnd();
 
             console.group('📈 OHLC Data');
-            console.log('Open:', quote.ohlc?.open);
-            console.log('High:', quote.ohlc?.high);
-            console.log('Low:', quote.ohlc?.low);
-            console.log('Close:', quote.ohlc?.close);
+            // console.log('Open:', quote.ohlc?.open);
+            // console.log('High:', quote.ohlc?.high);
+            // console.log('Low:', quote.ohlc?.low);
+            // console.log('Close:', quote.ohlc?.close);
             console.groupEnd();
 
             console.group('📊 Market Depth');
-            console.log('Buy Depth (5 levels):', quote.depth?.buy);
-            console.log('Sell Depth (5 levels):', quote.depth?.sell);
+            // console.log('Buy Depth (5 levels):', quote.depth?.buy);
+            // console.log('Sell Depth (5 levels):', quote.depth?.sell);
             console.groupEnd();
 
             console.group('📉 Volume & Trading');
-            console.log('Volume:', quote.last_volume);
-            console.log('LastTradedQty:', quote.last_traded_quantity);
-            console.log('Total Buy:', quote.total_buy);
-            console.log('Total Sell:', quote.total_sell);
+            // console.log('Volume:', quote.last_volume);
+            // console.log('LastTradedQty:', quote.last_traded_quantity);
+            // console.log('Total Buy:', quote.total_buy);
+            // console.log('Total Sell:', quote.total_sell);
             console.groupEnd();
 
             console.group('📅 52-Week Range');
-            console.log('52W High:', quote.year_high);
-            console.log('52W Low:', quote.year_low);
+            // console.log('52W High:', quote.year_high);
+            // console.log('52W Low:', quote.year_low);
             console.groupEnd();
         } else {
             console.warn('⚠️  Empty or invalid response');

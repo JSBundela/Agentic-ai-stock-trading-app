@@ -49,12 +49,12 @@ class WebSocketService {
                 // Active router is at /ws/market-data as per router.py prefix
                 const wsUrl = apiUrl.replace('http', 'ws') + '/ws/market-data';
 
-                console.log(`Connecting to WebSocket: ${wsUrl}`);
+                // console.log(`Connecting to WebSocket: ${wsUrl}`);
 
                 this.ws = new WebSocket(wsUrl);
 
                 this.ws.onopen = () => {
-                    console.log('✅ WebSocket connected to backend');
+                    // console.log('✅ WebSocket connected to backend');
                     this.connected = true;
                     this.reconnectAttempts = 0;
                     this.connectingPromise = null;
@@ -71,7 +71,7 @@ class WebSocketService {
 
                         // Handle status messages
                         if (data.status) {
-                            console.log(`WebSocket status: ${data.status}`, data.symbols);
+                            // console.log(`WebSocket status: ${data.status}`, data.symbols);
                             return;
                         }
 
@@ -133,7 +133,7 @@ class WebSocketService {
                 symbols
             }));
 
-            console.log(`Resubscribed to ${symbols.length} symbols:`, symbols);
+            // console.log(`Resubscribed to ${symbols.length} symbols:`, symbols);
         }
     }
 
@@ -165,7 +165,7 @@ class WebSocketService {
                     type: 'subscribe',
                     symbols: [symbol]
                 }));
-                console.log(`📡 Subscribed to LIVE quotes for ${symbol}`);
+                // console.log(`📡 Subscribed to LIVE quotes for ${symbol}`);
             }
         }
 
@@ -187,7 +187,7 @@ class WebSocketService {
                             type: 'unsubscribe',
                             symbols: [symbol]
                         }));
-                        console.log(`📡 Unsubscribed from quotes for ${symbol}`);
+                        // console.log(`📡 Unsubscribed from quotes for ${symbol}`);
                     }
                 }
             }

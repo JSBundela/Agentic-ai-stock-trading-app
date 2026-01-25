@@ -138,8 +138,8 @@ const Dashboard: React.FC = () => {
 
     // DEBUG: Log portfolio calculation
     React.useEffect(() => {
-        console.log('[PORTFOLIO DEBUG] Holdings data:', data?.holdings);
-        console.log('[PORTFOLIO DEBUG] Calculated portfolio value:', portfolioValue);
+        // console.log('[PORTFOLIO DEBUG] Holdings data:', data?.holdings);
+        // console.log('[PORTFOLIO DEBUG] Calculated portfolio value:', portfolioValue);
     }, [data?.holdings, portfolioValue]);
 
     return (
