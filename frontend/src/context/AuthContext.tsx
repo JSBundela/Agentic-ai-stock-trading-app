@@ -24,8 +24,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     useEffect(() => {
         // Check for existing session on mount
-        const token = localStorage.getItem('access_token');
-        const authFlag = localStorage.getItem('isAuthenticated');
+        const token = sessionStorage.getItem('access_token');
+        const authFlag = sessionStorage.getItem('isAuthenticated');
 
         if (token && authFlag === 'true') {
             setUser({ id: 'User', name: 'Trader' }); // Simplified for V3
@@ -45,19 +45,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, [isAuthenticated]);
 
     const login = (token: string, sid?: string) => {
-        localStorage.setItem('access_token', token);
-        if (sid) localStorage.setItem('sid', sid);
-        localStorage.setItem('isAuthenticated', 'true');
+        sessionStorage.setItem('access_token', token);
+        if (sid) sessionStorage.setItem('sid', sid);
+        sessionStorage.setItem('isAuthenticated', 'true');
         setUser({ id: 'User', name: 'Trader' });
         setIsAuthenticated(true);
     };
 
     const logout = () => {
         wsService.disconnect();
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('sid');
-        localStorage.removeItem('isAuthenticated');
-        localStorage.removeItem('baseUrl');
+        sessionStorage.removeItem('access_token');
+        sessionStorage.removeItem('sid');
+        sessionStorage.removeItem('isAuthenticated');
+        sessionStorage.removeItem('baseUrl');
         setUser(null);
         setIsAuthenticated(false);
         window.location.href = '/';

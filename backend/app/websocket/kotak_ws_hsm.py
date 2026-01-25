@@ -405,7 +405,7 @@ class KotakHSMClient:
         # Intelligent Prefixing: Use if| for indices (identified by 'idx')
         scrip_list = []
         for s in scrips:
-             if "idx" in s.lower():
+             if "idx" in s.lower() or "nifty" in s.lower() or "sensex" in s.lower():
                  scrip_list.append(f"if|{s}")
              else:
                  scrip_list.append(f"sf|{s}")
