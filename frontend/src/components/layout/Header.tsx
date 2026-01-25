@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Bell, Search, User } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { wsService } from '../../services/websocket';
 import { formatCurrency } from '../../utils/formatters';
 
 export const Header: React.FC = () => {
@@ -10,164 +9,43 @@ export const Header: React.FC = () => {
         nifty: { price: 0, change: 0, pChange: 0 },
         sensex: { price: 0, change: 0, pChange: 0 }
     });
-    const [isDemoMode, setIsDemoMode] = useState(false);
 
     useEffect(() => {
-        let unsubNifty: (() => void) | undefined;
-        let unsubSensex: (() => void) | undefined;
-
-        const connectAndSubscribe = async () => {
+        const fetchAndUpdateIndices = async () => {
             try {
-                // Check URL param for demo mode
-                const urlParams = new URLSearchParams(window.location.search);
-                const forceDemoMode = urlParams.get('demo') === 'true';
+                // Use demo mode endpoint (markets are closed)
+                const response = await fetch('http://localhost:8000/market/indices/live?demo=true');
+                const result = await response.json();
 
-                if (forceDemoMode) {
-                    setIsDemoMode(true);
-                    // Use demo data endpoint
-                    const response = await fetch('http://localhost:8000/market/indices/live?demo=true');
-                    const result = await response.json();
+                if (result.success && result.data) {
+                    const nifty = result.data.NIFTY_50;
+                    const sensex = result.data.SENSEX;
 
-                    if (result.success && result.data) {
-                        const nifty = result.data.NIFTY_50;
-                        const sensex = result.data.SENSEX;
-                        setIndices({
-                            nifty: {
-                                price: nifty.ltp || 25048.65,
-                                change: nifty.change || -241.25,
-                                pChange: nifty.percent_change || -0.96
-                            },
-                            sensex: {
-                                price: sensex.ltp || 81537.70,
-                                change: sensex.change || -769.67,
-                                pChange: sensex.percent_change || -0.94
-                            }
-                        });
-
-                        // Update periodically in demo mode
-                        const interval = setInterval(async () => {
-                            const demoResponse = await fetch('http://localhost:8000/market/indices/live?demo=true');
-                            const demoData = await demoResponse.json();
-                            if (demoData.success) {
-                                const n = demoData.data.NIFTY_50;
-                                const s = demoData.data.SENSEX;
-                                setIndices({
-                                    nifty: { price: n.ltp, change: n.change, pChange: n.percent_change },
-                                    sensex: { price: s.ltp, change: s.change, pChange: s.percent_change }
-                                });
-                            }
-                        }, 2000);
-                        return () => clearInterval(interval);
-                    }
-                    return;
-                }
-
-                // REAL DATA: Use same approach as Dashboard (direct market service)
-                const tokens = ['nse_cm|Nifty 50', 'bse_cm|SENSEX'];
-                const response = await fetch('http://localhost:8000/market/quotes', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ instrument_tokens: tokens })
-                });
-
-                const data = await response.json();
-                console.log('[HEADER] Market quotes response:', data);
-
-                if (Array.isArray(data) && data.length > 0) {
-                    const niftyData = data.find((i: any) =>
-                        i.exchange_token === 'Nifty 50' ||
-                        i.display_symbol === 'NIFTY 50' ||
-                        i.instrumentName === 'Nifty 50'
-                    );
-                    const sensexData = data.find((i: any) =>
-                        i.exchange_token === 'SENSEX' ||
-                        i.display_symbol === 'SENSEX' ||
-                        i.instrumentName === 'SENSEX'
-                    );
-
-                    if (niftyData) {
-                        setIndices(prev => ({
-                            ...prev, nifty: {
-                                price: parseFloat(niftyData.ltp),
-                                change: parseFloat(niftyData.chn || niftyData.change || 0),
-                                pChange: parseFloat(niftyData.pc || niftyData.pChange || 0)
-                            }
-                        }));
-
-                        const tok = niftyData.instrumentToken || niftyData.exchange_token;
-                        if (tok) unsubNifty = wsService.subscribeQuotes(`nse_cm|${tok}`, (tick) => {
-                            setIndices(prev => ({
-                                ...prev, nifty: {
-                                    price: tick.ltp,
-                                    change: tick.change || prev.nifty.change,
-                                    pChange: tick.per_change || prev.nifty.pChange
-                                }
-                            }));
-                        });
-                    }
-
-                    if (sensexData) {
-                        setIndices(prev => ({
-                            ...prev, sensex: {
-                                price: parseFloat(sensexData.ltp),
-                                change: parseFloat(sensexData.chn || sensexData.change || 0),
-                                pChange: parseFloat(sensexData.pc || sensexData.pChange || 0)
-                            }
-                        }));
-
-                        const tok = sensexData.instrumentToken || sensexData.exchange_token;
-                        if (tok) unsubSensex = wsService.subscribeQuotes(`bse_cm|${tok}`, (tick) => {
-                            setIndices(prev => ({
-                                ...prev, sensex: {
-                                    price: tick.ltp,
-                                    change: tick.change || prev.sensex.change,
-                                    pChange: tick.per_change || prev.sensex.pChange
-                                }
-                            }));
-                        });
-                    }
-                } else {
-                    console.warn('[HEADER] Empty market data, trying demo mode...');
-                    // Auto-fallback to demo mode if no data
-                    setIsDemoMode(true);
-                    const demoResponse = await fetch('http://localhost:8000/market/indices/live?demo=true');
-                    const demoData = await demoResponse.json();
-                    if (demoData.success) {
-                        const n = demoData.data.NIFTY_50;
-                        const s = demoData.data.SENSEX;
-                        setIndices({
-                            nifty: { price: n.ltp, change: n.change, pChange: n.percent_change },
-                            sensex: { price: s.ltp, change: s.change, pChange: s.percent_change }
-                        });
-                    }
+                    setIndices({
+                        nifty: {
+                            price: nifty.ltp || 25048.65,
+                            change: nifty.change || -241.25,
+                            pChange: nifty.percent_change || -0.96
+                        },
+                        sensex: {
+                            price: sensex.ltp || 81537.70,
+                            change: sensex.change || -769.67,
+                            pChange: sensex.percent_change || -0.94
+                        }
+                    });
                 }
             } catch (error) {
-                console.error('[HEADER] Failed to fetch data:', error);
-                // Fallback to demo mode on error
-                setIsDemoMode(true);
-                try {
-                    const demoResponse = await fetch('http://localhost:8000/market/indices/live?demo=true');
-                    const demoData = await demoResponse.json();
-                    if (demoData.success) {
-                        const n = demoData.data.NIFTY_50;
-                        const s = demoData.data.SENSEX;
-                        setIndices({
-                            nifty: { price: n.ltp, change: n.change, pChange: n.percent_change },
-                            sensex: { price: s.ltp, change: s.change, pChange: s.percent_change }
-                        });
-                    }
-                } catch (e) {
-                    console.error('[HEADER] Demo mode also failed:', e);
-                }
+                console.error('[HEADER] Error fetching indices:', error);
             }
         };
 
-        connectAndSubscribe();
+        // Initial fetch
+        fetchAndUpdateIndices();
 
-        return () => {
-            if (unsubNifty) unsubNifty();
-            if (unsubSensex) unsubSensex();
-        };
+        // Update every 2 seconds for live feel
+        const interval = setInterval(fetchAndUpdateIndices, 2000);
+
+        return () => clearInterval(interval);
     }, []);
 
     const renderChange = (change: number, pChange: number) => {
@@ -216,19 +94,11 @@ export const Header: React.FC = () => {
                 </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-6">
                 <button className="relative p-2.5 bg-glass-surface border border-glass-border rounded-xl text-gray-400 hover:text-white transition-all hover:bg-glass-hover">
                     <Bell size={20} />
                     <span className="absolute top-2 right-2 w-2 h-2 bg-brand rounded-full border-2 border-obsidian-950 shadow-[0_0_8px_#6366F1]" />
                 </button>
-
-                {/* Demo mode badge hidden as per user request */}
-                {/* {isDemoMode && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-lg">
-                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                        <span className="text-[9px] font-bold uppercase tracking-wider text-amber-300">Demo Mode</span>
-                    </div>
-                )} */}
 
                 <div className="flex items-center gap-4 pl-6 border-l border-glass-border">
                     <div className="text-right hidden sm:block">
