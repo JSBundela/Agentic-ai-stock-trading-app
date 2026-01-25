@@ -11,7 +11,7 @@ from typing import TypedDict, Annotated, List, Dict, Any, Optional, Literal
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from app.mcp import mcp_server
-from app.agents.core import llm_client, AgentModels
+from app.agents.core import llm_client, AgentModels, format_as_bullets
 from app.database.memory_repository import MemoryRepository
 from app.core.logger import logger
 

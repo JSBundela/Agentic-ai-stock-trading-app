@@ -5,6 +5,7 @@ from typing import Optional
 from app.agents.langgraph_engine import agent_graph
 from app.database.memory_repository import memory_repository
 from app.core.logger import logger
+from app.agents.core import format_as_bullets
 
 router = APIRouter(prefix="/agent", tags=["Agentic AI"])
 
@@ -53,6 +54,9 @@ async def agent_chat(request: ChatRequest):
         agent_name = final_state.get("agent_name", "Unknown")
         error = final_state.get("error")
         
+        # Apply bullet-point formatting
+        formatted_response = format_as_bullets(agent_response)
+
         # 6. Build Response
         response_data = {
             "success": not error,
@@ -60,7 +64,7 @@ async def agent_chat(request: ChatRequest):
             "intent": final_state.get("intent"),
             "response": {
                 "type": "text",
-                "content": agent_response
+                "content": formatted_response
             },
             "mcp_tool_calls": final_state.get("mcp_tool_calls", []),
             "debug_info": final_state.get("debug_info")
