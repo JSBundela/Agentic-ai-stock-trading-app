@@ -22,3 +22,4 @@ kotak_api_documentation.md
 session_cache.json
 debug_limits.json
 data/
+*.db
