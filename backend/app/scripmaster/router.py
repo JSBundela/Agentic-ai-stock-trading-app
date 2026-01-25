@@ -7,28 +7,16 @@ router = APIRouter(prefix="/scripmaster", tags=["ScripMaster"])
 async def search_scrips(q: str = Query(..., min_length=1, description="Search query (symbol or name)")):
     """
     READ-ONLY scrip search endpoint.
-    Searches in-memory scrip master loaded at startup.
+    Searches SQLite scrip master loaded at startup.
     Returns matching symbols for autocomplete.
     """
-    if scrip_master.scrip_data is None or scrip_master.scrip_data.empty:
-        # If scrip master is empty, session probably lost or reload required
-        raise HTTPException(status_code=401, detail="Scrip master not loaded. Please login again.")
-    
-    df = scrip_master.scrip_data
     query = q.upper()
-    
-    # Match against: tradingSymbol (index), companyName, and description (full company name)
-    mask = (df.index.str.contains(query, case=False, na=False)) | \
-           (df['companyName'].str.contains(query, case=False, na=False)) | \
-           (df['description'].str.contains(query, case=False, na=False))
-    matches = df[mask]
-    
-    # Reset index to get tradingSymbol as a column for result extraction
-    results_df = matches.head(20).reset_index()
-    # Replace NaN with None for JSON serialization
-    results = results_df.where(results_df.notna(), None).to_dict('records')
-    
-    return {"data": results}
+    try:
+        results = scrip_master.search_scrips(query)
+        return {"data": results}
+    except Exception as e:
+        # If scrip master is empty or DB error
+        return {"data": []}
 
 @router.get("/scrip/{trading_symbol}")
 async def get_scrip_details(trading_symbol: str):

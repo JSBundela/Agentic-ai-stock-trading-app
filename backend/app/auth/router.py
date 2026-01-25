@@ -26,7 +26,6 @@ async def reload_scrip_master():
     try:
         from app.scripmaster.service import scrip_master
         await scrip_master.load_scrip_master()
-        count = len(scrip_master.scrip_data) if scrip_master.scrip_data is not None else 0
-        return {"message": f"Scrip master reloaded successfully", "records": count}
+        return {"message": "Scrip master reloaded successfully (SQLite Mode)"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

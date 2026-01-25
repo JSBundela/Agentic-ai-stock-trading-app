@@ -176,16 +176,6 @@ async def market_data_websocket(websocket: WebSocket):
                     symbols = [symbols]
 
                 if action == "subscribe":
-                    # CRITICAL: Check if scrip master is ready
-                    if scrip_master.scrip_data is None or scrip_master.scrip_data.empty:
-                        logger.warning("Subscription rejected: Scrip Master not ready")
-                        await websocket.send_json({
-                            "type": "error",
-                            "message": "Market data engine initializing (Scrip Master loading). Please wait ~60s.",
-                            "code": "SCRIP_NOT_READY"
-                        })
-                        continue
-
                     for sym in symbols:
                         await manager.subscribe_client(websocket, str(sym))
                 

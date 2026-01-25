@@ -8,11 +8,10 @@ class UINavigationAgent:
     
     ROUTES:
     - /dashboard : Dashboard, Home, Overview
-    - /order-book : Orders, Order History, Open Orders, Trades
+    - /orders : Orders, Order Book, Order History, Open Orders, Trades
     - /positions : Portfolio, Positions, Holdings, P&L
     - /funds : Funds, Wallet, Balance, Add Money, Withdraw
-    - /order-entry : Place order, Buy, Sell (if no specific symbol, go to generic entry)
-    - /instruments : Market, Search, Option Chain, Screeners
+    - /market-watch : Market, Search, Option Chain, Screeners
     
     OUTPUT FORMAT (JSON ONLY):
     {

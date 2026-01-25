@@ -268,5 +268,31 @@ class ScripMasterService:
             return None
         return None
 
+    @lru_cache(maxsize=1000)
+    def search_scrips(self, query: str):
+        """Search scrips by symbol or company name using SQL"""
+        if not query or len(query) < 2: return []
+        
+        try:
+            q_param = f"%{query}%"
+            with self._get_conn() as conn:
+                conn.row_factory = sqlite3.Row
+                # Search Priority: Starts With Symbol > Contains Symbol > Company Name
+                # We can do a simple UNION or just broad search. Let's do broad search with LIMIT.
+                
+                sql = """
+                    SELECT * FROM scrips 
+                    WHERE tradingSymbol LIKE ? 
+                       OR companyName LIKE ? 
+                       OR description LIKE ?
+                    LIMIT 20
+                """
+                cursor = conn.execute(sql, (q_param, q_param, q_param))
+                rows = cursor.fetchall()
+                return [dict(row) for row in rows]
+        except Exception as e:
+            logger.error(f"Search error: {e}")
+            return []
+
 # Global singleton instance
 scrip_master = ScripMasterService()

@@ -1,3 +1,2 @@
 Loaded: 286688 records
-Segments: ['CDE_FO', 'MCX_FO', 'NSE_FO', 'BSE_FO', 'NSE_COM', 'NSE_CM-V1', 'BSE_CM-V1']
-Columns: ['instrumentToken', 'exchangeSegment', 'lotSize', 'instrumentType', 'optionType', 'expiryEpoch', 'strikePrice', 'companyName', 'description', 'expiryDateISO', 'segment']
+Mode: SQLite (Disk-based)
