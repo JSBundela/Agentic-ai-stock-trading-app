@@ -139,7 +139,7 @@ async def intent_classifier_node(state: AgentState) -> AgentState:
         response = await llm_client.chat_completion(
             messages=messages,
             model=AgentModels.ORCHESTRATOR,  # Claude Sonnet
-            max_tokens=300,
+            max_tokens=1500,
             json_mode=True
         )
         
@@ -298,7 +298,7 @@ async def market_explainer_node(state: AgentState) -> AgentState:
             response = await llm_client.chat_completion(
                 messages=messages,
                 model=AgentModels.MARKET_EXPLAINER,
-                max_tokens=500
+                max_tokens=1500
             )
             
             state["agent_response"] = response.get("choices", [{}])[0].get("message", {}).get("content", "Data unavailable")
@@ -413,7 +413,7 @@ async def data_interpreter_node(state: AgentState) -> AgentState:
         response = await llm_client.chat_completion(
             messages=messages,
             model=AgentModels.MARKET_EXPLAINER,
-            max_tokens=500
+            max_tokens=1500
         )
         
         state["agent_response"] = response.get("choices", [{}])[0].get("message", {}).get("content", "Unable to explain")
