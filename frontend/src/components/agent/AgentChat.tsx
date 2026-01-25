@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bot, Send, X, Sparkles, ChevronRight, Zap, Maximize2, Minimize2 } from 'lucide-react';
+import { Bot, Send, X, Sparkles, Zap, Maximize2, Minimize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../../api/client';

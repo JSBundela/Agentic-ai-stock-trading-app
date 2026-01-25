@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { orderService } from '../../services/orderService';
-import { X, Check } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface ModifyOrderDialogProps {
     order: any;
@@ -72,8 +72,8 @@ export const ModifyOrderDialog: React.FC<ModifyOrderDialogProps> = ({ order, isO
                                         key={type}
                                         onClick={() => setOrderType(type)}
                                         className={`flex-1 py-2 text-[10px] font-bold rounded-md transition-all ${orderType === type
-                                                ? 'bg-brand text-white shadow-lg'
-                                                : 'text-gray-500 hover:text-gray-300'
+                                            ? 'bg-brand text-white shadow-lg'
+                                            : 'text-gray-500 hover:text-gray-300'
                                             }`}
                                     >
                                         {type}

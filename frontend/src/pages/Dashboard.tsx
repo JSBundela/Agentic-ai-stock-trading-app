@@ -9,7 +9,7 @@ import { Badge } from '../components/ui/Badge';
 // import { orderService } from '../services/orderService'; // Removed
 import { useDashboardData } from '../hooks/useDashboardData';
 import { formatCurrency } from '../utils/formatters';
-import { Activity, ArrowUpRight, ShieldCheck, Zap, Layers } from 'lucide-react';
+import { Activity, Layers } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { marketService } from '../services/marketService';
 import { wsService } from '../services/websocket';

@@ -24,7 +24,7 @@ export const FundsCard: React.FC<FundsCardProps> = ({ limits, loading }) => {
     // Mapping fields based on observation or standard keys
     // If backend returns Test Data: NotionalCash, MarginUsed, Net
     // If Kotak Real Data: might be netCash, marginUsed, etc.
-    const netCash = limits.netCash || limits.cashBal || '0';
+    const netCash = limits.netCash || '0';
     const marginUsed = limits.marginUsed || '0';
     const available = parseFloat(netCash) - parseFloat(marginUsed); // Simplified logic
 

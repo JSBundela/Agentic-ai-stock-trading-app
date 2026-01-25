@@ -31,7 +31,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({ symbol, onOrderPlaced }) =
             }
         });
 
-        portfolioService.getLimits().then(l => setFunds(l.netCash || l.cashBal || '0'));
+        portfolioService.getLimits().then(l => setFunds(l.netCash || '0'));
 
         return () => unsubscribe();
     }, [symbol]);

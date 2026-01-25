@@ -25,7 +25,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         // Check for existing session on mount
         const token = localStorage.getItem('access_token');
-        const sid = localStorage.getItem('sid');
         const authFlag = localStorage.getItem('isAuthenticated');
 
         if (token && authFlag === 'true') {
