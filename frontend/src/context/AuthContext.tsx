@@ -28,7 +28,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const authFlag = localStorage.getItem('isAuthenticated');
 
         if (token && authFlag === 'true') {
-            setUser({ id: 'User', name: 'M. S. Bundela' }); // Simplified for V3
+            setUser({ id: 'User', name: 'Trader' }); // Simplified for V3
             setIsAuthenticated(true);
         }
         setLoading(false);
@@ -48,7 +48,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('access_token', token);
         if (sid) localStorage.setItem('sid', sid);
         localStorage.setItem('isAuthenticated', 'true');
-        setUser({ id: 'User', name: 'M. S. Bundela' });
+        setUser({ id: 'User', name: 'Trader' });
         setIsAuthenticated(true);
     };
 

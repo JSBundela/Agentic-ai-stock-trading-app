@@ -24,14 +24,18 @@ export const FundsCard: React.FC<FundsCardProps> = ({ limits, loading }) => {
     // Mapping fields based on observation or standard keys
     // If backend returns Test Data: NotionalCash, MarginUsed, Net
     // If Kotak Real Data: might be netCash, marginUsed, etc.
-    const netCash = limits.netCash || '0';
+    // Mapped from Kotak Neo API response
+    // Interface Limits uses normalized names: netCash -> Net, collateralValue -> CollateralValue
+    const availableFunds = limits.netCash || '0';
+    const marginPower = limits.netCash || '0';
     const marginUsed = limits.marginUsed || '0';
-    const available = parseFloat(netCash) - parseFloat(marginUsed); // Simplified logic
+    const marginFromShares = limits.collateralValue || '0';
 
     const cards = [
-        { label: 'Available Margin', value: available.toFixed(2), color: 'text-white' },
+        { label: 'Available Funds', value: availableFunds, color: 'text-white' },
+        { label: 'Margin Power', value: marginPower, color: 'text-blue-400' },
         { label: 'Margin Used', value: marginUsed, color: 'text-yellow-400' },
-        { label: 'Net Cash', value: netCash, color: 'text-green-400' }
+        { label: 'Margin from Shares', value: marginFromShares, color: 'text-purple-400' }
     ];
 
     return (

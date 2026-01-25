@@ -107,10 +107,10 @@ class MCPTools:
         try:
             # Map index names to API tokens
             index_tokens = {
-                "NIFTY 50": "nse_cm|Nifty 50",
-                "NIFTY BANK": "nse_cm|Nifty Bank",
+                "NIFTY 50": "nse_cm|NIFTY 50",
+                "NIFTY BANK": "nse_cm|NIFTY BANK",
                 "SENSEX": "bse_cm|SENSEX",
-                "NIFTY IT": "nse_cm|Nifty IT"
+                "NIFTY IT": "nse_cm|NIFTY IT"
             }
             
             token = index_tokens.get(input_data.index)
