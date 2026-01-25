@@ -202,17 +202,19 @@ async def intent_classifier_node(state: AgentState) -> AgentState:
         nav_keywords = ["go to", "goto", "navigate", "show", "open", "take me to"]
         nav_dest = ["portfolio", "orders", "order book", "orderbook", "funds", "dashboard", "home", "holdings", "positions"]
         
-        # Map destinations to routes
+        # Map destinations to routes (MUST match MCP NavigateToInput schema)
         route_map = {
-            "portfolio": "/portfolio",
-            "orders": "/order-book",
-            "order book": "/order-book",
-            "orderbook": "/order-book",
+            "portfolio": "/holdings",      # Map portfolio->holdings
+            "orders": "/orders",           # Fixed from /order-book
+            "order book": "/orders",       # Fixed from /order-book
+            "orderbook": "/orders",        # Fixed from /order-book
             "funds": "/funds",
-            "dashboard": "/",
-            "home": "/",
-            "holdings": "/portfolio",
-            "positions": "/portfolio"
+            "dashboard": "/dashboard",     # Fixed from /
+            "home": "/dashboard",          # Fixed from /
+            "holdings": "/holdings",
+            "positions": "/positions",     # Fixed from /portfolio
+            "market watch": "/market-watch",
+            "marketwatch": "/market-watch"
         }
         
         # Check for navigation intent

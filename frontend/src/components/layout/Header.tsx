@@ -10,6 +10,7 @@ export const Header: React.FC = () => {
         nifty: { price: 0, change: 0, pChange: 0 },
         sensex: { price: 0, change: 0, pChange: 0 }
     });
+    const [isDemoMode, setIsDemoMode] = useState(false);
 
     useEffect(() => {
         let unsubNifty: (() => void) | undefined;
@@ -17,11 +18,21 @@ export const Header: React.FC = () => {
 
         const connectAndSubscribe = async () => {
             try {
+                // Check if we should use demo mode (query param or localStorage)
+                const urlParams = new URLSearchParams(window.location.search);
+                const demoParam = urlParams.get('demo') === 'true' || localStorage.getItem('demoMode') === 'true';
+
                 // Fetch live indices using new MCP-based endpoint
-                const response = await fetch('http://localhost:8000/market/indices/live');
+                const response = await fetch(`http://localhost:8000/market/indices/live${demoParam ? '?demo=true' : ''}`);
                 const result = await response.json();
 
                 console.log('[HEADER] Live Index Data:', result);
+
+                // Set demo mode flag
+                if (result.demo_mode) {
+                    setIsDemoMode(true);
+                    console.log('[HEADER] 🎬 DEMO MODE ACTIVE');
+                }
 
                 if (result.success && result.data) {
                     // Update NIFTY 50
@@ -36,19 +47,21 @@ export const Header: React.FC = () => {
                             }
                         }));
 
-                        // Subscribe to WebSocket for live updates
-                        const wsToken = 'nse_cm|Nifty 50';
-                        console.log(`[HEADER] Subscribing WS Nifty: ${wsToken}`);
-                        unsubNifty = wsService.subscribeQuotes(wsToken, (tick) => {
-                            setIndices(prev => ({
-                                ...prev,
-                                nifty: {
-                                    price: tick.ltp,
-                                    change: tick.change || prev.nifty.change,
-                                    pChange: tick.per_change || prev.nifty.pChange
-                                }
-                            }));
-                        });
+                        // Subscribe to WebSocket for live updates (skip in demo mode)
+                        if (!result.demo_mode) {
+                            const wsToken = 'nse_cm|Nifty 50';
+                            console.log(`[HEADER] Subscribing WS Nifty: ${wsToken}`);
+                            unsubNifty = wsService.subscribeQuotes(wsToken, (tick) => {
+                                setIndices(prev => ({
+                                    ...prev,
+                                    nifty: {
+                                        price: tick.ltp,
+                                        change: tick.change || prev.nifty.change,
+                                        pChange: tick.per_change || prev.nifty.pChange
+                                    }
+                                }));
+                            });
+                        }
                     } else {
                         console.warn('[HEADER] NIFTY data unavailable:', niftyData?.error);
                     }
@@ -65,19 +78,44 @@ export const Header: React.FC = () => {
                             }
                         }));
 
-                        // Subscribe to WebSocket for live updates
-                        const wsToken = 'bse_cm|SENSEX';
-                        console.log(`[HEADER] Subscribing WS Sensex: ${wsToken}`);
-                        unsubSensex = wsService.subscribeQuotes(wsToken, (tick) => {
-                            setIndices(prev => ({
-                                ...prev,
-                                sensex: {
-                                    price: tick.ltp,
-                                    change: tick.change || prev.sensex.change,
-                                    pChange: tick.per_change || prev.sensex.pChange
+                        // Subscribe to WebSocket for live updates (skip in demo mode)
+                        if (!result.demo_mode) {
+                            const wsToken = 'bse_cm|SENSEX';
+                            console.log(`[HEADER] Subscribing WS Sensex: ${wsToken}`);
+                            unsubSensex = wsService.subscribeQuotes(wsToken, (tick) => {
+                                setIndices(prev => ({
+                                    ...prev,
+                                    sensex: {
+                                        price: tick.ltp,
+                                        change: tick.change || prev.sensex.change,
+                                        pChange: tick.per_change || prev.sensex.pChange
+                                    }
+                                }));
+                            });
+                        } else {
+                            // In demo mode, update prices periodically
+                            const interval = setInterval(async () => {
+                                const demoResponse = await fetch('http://localhost:8000/market/indices/live?demo=true');
+                                const demoData = await demoResponse.json();
+                                if (demoData.success) {
+                                    const nifty = demoData.data.NIFTY_50;
+                                    const sensex = demoData.data.SENSEX;
+                                    setIndices({
+                                        nifty: {
+                                            price: nifty.ltp || 0,
+                                            change: nifty.change || 0,
+                                            pChange: nifty.percent_change || 0
+                                        },
+                                        sensex: {
+                                            price: sensex.ltp || 0,
+                                            change: sensex.change || 0,
+                                            pChange: sensex.percent_change || 0
+                                        }
+                                    });
                                 }
-                            }));
-                        });
+                            }, 2000); // Update every 2 seconds in demo mode
+                            return () => clearInterval(interval);
+                        }
                     } else {
                         console.warn('[HEADER] SENSEX data unavailable:', sensexData?.error);
                     }
@@ -143,23 +181,31 @@ export const Header: React.FC = () => {
                 </div>
             </div>
 
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-2">
                 <button className="relative p-2.5 bg-glass-surface border border-glass-border rounded-xl text-gray-400 hover:text-white transition-all hover:bg-glass-hover">
                     <Bell size={20} />
                     <span className="absolute top-2 right-2 w-2 h-2 bg-brand rounded-full border-2 border-obsidian-950 shadow-[0_0_8px_#6366F1]" />
                 </button>
 
-                <div className="flex items-center gap-4 pl-6 border-l border-glass-border">
-                    <div className="text-right hidden sm:block">
-                        <p className="text-xs font-display font-black text-white uppercase tracking-tight">
-                            {user?.name || 'Guest'}
-                        </p>
+                {isDemoMode && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30 rounded-lg">
+                        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+                        <span className="text-[9px] font-bold uppercase tracking-wider text-amber-300">Demo Mode</span>
                     </div>
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-brand to-indigo-800 flex items-center justify-center border border-white/20 shadow-lg shadow-brand/20">
-                        <User size={20} className="text-white" />
-                    </div>
+                )}
+            </div>
+
+            <div className="flex items-center gap-4 pl-6 border-l border-glass-border">
+                <div className="text-right hidden sm:block">
+                    <p className="text-xs font-display font-black text-white uppercase tracking-tight">
+                        {user?.name || 'Guest'}
+                    </p>
+                </div>
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-brand to-indigo-800 flex items-center justify-center border border-white/20 shadow-lg shadow-brand/20">
+                    <User size={20} className="text-white" />
                 </div>
             </div>
-        </header>
+        </div>
+        </header >
     );
 };
