@@ -18,112 +18,147 @@ export const Header: React.FC = () => {
 
         const connectAndSubscribe = async () => {
             try {
-                // Check if we should use demo mode (query param or localStorage)
+                // Check URL param for demo mode
                 const urlParams = new URLSearchParams(window.location.search);
-                const demoParam = urlParams.get('demo') === 'true' || localStorage.getItem('demoMode') === 'true';
+                const forceDemoMode = urlParams.get('demo') === 'true';
 
-                // Fetch live indices using new MCP-based endpoint
-                const response = await fetch(`http://localhost:8000/market/indices/live${demoParam ? '?demo=true' : ''}`);
-                const result = await response.json();
-
-                console.log('[HEADER] Live Index Data:', result);
-
-                // Set demo mode flag
-                if (result.demo_mode) {
+                if (forceDemoMode) {
                     setIsDemoMode(true);
-                    console.log('[HEADER] 🎬 DEMO MODE ACTIVE');
+                    // Use demo data endpoint
+                    const response = await fetch('http://localhost:8000/market/indices/live?demo=true');
+                    const result = await response.json();
+
+                    if (result.success && result.data) {
+                        const nifty = result.data.NIFTY_50;
+                        const sensex = result.data.SENSEX;
+                        setIndices({
+                            nifty: {
+                                price: nifty.ltp || 25048.65,
+                                change: nifty.change || -241.25,
+                                pChange: nifty.percent_change || -0.96
+                            },
+                            sensex: {
+                                price: sensex.ltp || 81537.70,
+                                change: sensex.change || -769.67,
+                                pChange: sensex.percent_change || -0.94
+                            }
+                        });
+
+                        // Update periodically in demo mode
+                        const interval = setInterval(async () => {
+                            const demoResponse = await fetch('http://localhost:8000/market/indices/live?demo=true');
+                            const demoData = await demoResponse.json();
+                            if (demoData.success) {
+                                const n = demoData.data.NIFTY_50;
+                                const s = demoData.data.SENSEX;
+                                setIndices({
+                                    nifty: { price: n.ltp, change: n.change, pChange: n.percent_change },
+                                    sensex: { price: s.ltp, change: s.change, pChange: s.percent_change }
+                                });
+                            }
+                        }, 2000);
+                        return () => clearInterval(interval);
+                    }
+                    return;
                 }
 
-                if (result.success && result.data) {
-                    // Update NIFTY 50
-                    const niftyData = result.data.NIFTY_50;
-                    if (niftyData && !niftyData.error) {
+                // REAL DATA: Use same approach as Dashboard (direct market service)
+                const tokens = ['nse_cm|Nifty 50', 'bse_cm|SENSEX'];
+                const response = await fetch('http://localhost:8000/market/quotes', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ instrument_tokens: tokens })
+                });
+
+                const data = await response.json();
+                console.log('[HEADER] Market quotes response:', data);
+
+                if (Array.isArray(data) && data.length > 0) {
+                    const niftyData = data.find((i: any) =>
+                        i.exchange_token === 'Nifty 50' ||
+                        i.display_symbol === 'NIFTY 50' ||
+                        i.instrumentName === 'Nifty 50'
+                    );
+                    const sensexData = data.find((i: any) =>
+                        i.exchange_token === 'SENSEX' ||
+                        i.display_symbol === 'SENSEX' ||
+                        i.instrumentName === 'SENSEX'
+                    );
+
+                    if (niftyData) {
                         setIndices(prev => ({
-                            ...prev,
-                            nifty: {
-                                price: niftyData.ltp || 0,
-                                change: niftyData.change || 0,
-                                pChange: niftyData.percent_change || 0
+                            ...prev, nifty: {
+                                price: parseFloat(niftyData.ltp),
+                                change: parseFloat(niftyData.chn || niftyData.change || 0),
+                                pChange: parseFloat(niftyData.pc || niftyData.pChange || 0)
                             }
                         }));
 
-                        // Subscribe to WebSocket for live updates (skip in demo mode)
-                        if (!result.demo_mode) {
-                            const wsToken = 'nse_cm|Nifty 50';
-                            console.log(`[HEADER] Subscribing WS Nifty: ${wsToken}`);
-                            unsubNifty = wsService.subscribeQuotes(wsToken, (tick) => {
-                                setIndices(prev => ({
-                                    ...prev,
-                                    nifty: {
-                                        price: tick.ltp,
-                                        change: tick.change || prev.nifty.change,
-                                        pChange: tick.per_change || prev.nifty.pChange
-                                    }
-                                }));
-                            });
-                        }
-                    } else {
-                        console.warn('[HEADER] NIFTY data unavailable:', niftyData?.error);
+                        const tok = niftyData.instrumentToken || niftyData.exchange_token;
+                        if (tok) unsubNifty = wsService.subscribeQuotes(`nse_cm|${tok}`, (tick) => {
+                            setIndices(prev => ({
+                                ...prev, nifty: {
+                                    price: tick.ltp,
+                                    change: tick.change || prev.nifty.change,
+                                    pChange: tick.per_change || prev.nifty.pChange
+                                }
+                            }));
+                        });
                     }
 
-                    // Update SENSEX
-                    const sensexData = result.data.SENSEX;
-                    if (sensexData && !sensexData.error) {
+                    if (sensexData) {
                         setIndices(prev => ({
-                            ...prev,
-                            sensex: {
-                                price: sensexData.ltp || 0,
-                                change: sensexData.change || 0,
-                                pChange: sensexData.percent_change || 0
+                            ...prev, sensex: {
+                                price: parseFloat(sensexData.ltp),
+                                change: parseFloat(sensexData.chn || sensexData.change || 0),
+                                pChange: parseFloat(sensexData.pc || sensexData.pChange || 0)
                             }
                         }));
 
-                        // Subscribe to WebSocket for live updates (skip in demo mode)
-                        if (!result.demo_mode) {
-                            const wsToken = 'bse_cm|SENSEX';
-                            console.log(`[HEADER] Subscribing WS Sensex: ${wsToken}`);
-                            unsubSensex = wsService.subscribeQuotes(wsToken, (tick) => {
-                                setIndices(prev => ({
-                                    ...prev,
-                                    sensex: {
-                                        price: tick.ltp,
-                                        change: tick.change || prev.sensex.change,
-                                        pChange: tick.per_change || prev.sensex.pChange
-                                    }
-                                }));
-                            });
-                        } else {
-                            // In demo mode, update prices periodically
-                            const interval = setInterval(async () => {
-                                const demoResponse = await fetch('http://localhost:8000/market/indices/live?demo=true');
-                                const demoData = await demoResponse.json();
-                                if (demoData.success) {
-                                    const nifty = demoData.data.NIFTY_50;
-                                    const sensex = demoData.data.SENSEX;
-                                    setIndices({
-                                        nifty: {
-                                            price: nifty.ltp || 0,
-                                            change: nifty.change || 0,
-                                            pChange: nifty.percent_change || 0
-                                        },
-                                        sensex: {
-                                            price: sensex.ltp || 0,
-                                            change: sensex.change || 0,
-                                            pChange: sensex.percent_change || 0
-                                        }
-                                    });
+                        const tok = sensexData.instrumentToken || sensexData.exchange_token;
+                        if (tok) unsubSensex = wsService.subscribeQuotes(`bse_cm|${tok}`, (tick) => {
+                            setIndices(prev => ({
+                                ...prev, sensex: {
+                                    price: tick.ltp,
+                                    change: tick.change || prev.sensex.change,
+                                    pChange: tick.per_change || prev.sensex.pChange
                                 }
-                            }, 2000); // Update every 2 seconds in demo mode
-                            return () => clearInterval(interval);
-                        }
-                    } else {
-                        console.warn('[HEADER] SENSEX data unavailable:', sensexData?.error);
+                            }));
+                        });
                     }
                 } else {
-                    console.error('[HEADER] Live indices endpoint failed:', result.error);
+                    console.warn('[HEADER] Empty market data, trying demo mode...');
+                    // Auto-fallback to demo mode if no data
+                    setIsDemoMode(true);
+                    const demoResponse = await fetch('http://localhost:8000/market/indices/live?demo=true');
+                    const demoData = await demoResponse.json();
+                    if (demoData.success) {
+                        const n = demoData.data.NIFTY_50;
+                        const s = demoData.data.SENSEX;
+                        setIndices({
+                            nifty: { price: n.ltp, change: n.change, pChange: n.percent_change },
+                            sensex: { price: s.ltp, change: s.change, pChange: s.percent_change }
+                        });
+                    }
                 }
             } catch (error) {
-                console.error('[HEADER] Failed to fetch live indices:', error);
+                console.error('[HEADER] Failed to fetch data:', error);
+                // Fallback to demo mode on error
+                setIsDemoMode(true);
+                try {
+                    const demoResponse = await fetch('http://localhost:8000/market/indices/live?demo=true');
+                    const demoData = await demoResponse.json();
+                    if (demoData.success) {
+                        const n = demoData.data.NIFTY_50;
+                        const s = demoData.data.SENSEX;
+                        setIndices({
+                            nifty: { price: n.ltp, change: n.change, pChange: n.percent_change },
+                            sensex: { price: s.ltp, change: s.change, pChange: s.percent_change }
+                        });
+                    }
+                } catch (e) {
+                    console.error('[HEADER] Demo mode also failed:', e);
+                }
             }
         };
 
