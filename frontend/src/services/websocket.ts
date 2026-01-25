@@ -80,41 +80,8 @@ class WebSocketService {
                             const tickNum = (this.tickCount.get(data.symbol) || 0) + 1;
                             this.tickCount.set(data.symbol, tickNum);
 
-                            console.group(`🔴 WebSocket LIVE Tick #${tickNum} - ${data.symbol}`);
-                            console.log('RAW TICK PAYLOAD:', JSON.stringify(data, null, 2));
-                            console.log('---');
-
-                            // REQUIRED fields
-                            console.log('Symbol:', data.symbol);
-                            console.log('LTP:', data.ltp);
-                            console.log('Timestamp:', data.timestamp, new Date(data.timestamp * 1000).toLocaleTimeString());
-
-                            // OPTIONAL fields - verify which are present
-                            console.group('📊 Additional Fields Present:');
-                            if (data.open !== undefined) console.log('✅ Open:', data.open);
-                            else console.log('❌ Open: NOT PROVIDED');
-
-                            if (data.high !== undefined) console.log('✅ High:', data.high);
-                            else console.log('❌ High: NOT PROVIDED');
-
-                            if (data.low !== undefined) console.log('✅ Low:', data.low);
-                            else console.log('❌ Low: NOT PROVIDED');
-
-                            if (data.close !== undefined) console.log('✅ Close:', data.close);
-                            else console.log('❌ Close: NOT PROVIDED');
-
-                            if (data.volume !== undefined) console.log('✅ Volume:', data.volume);
-                            else console.log('❌ Volume: NOT PROVIDED');
-
-                            if (data.change !== undefined) console.log('✅ Change:', data.change);
-                            else console.log('❌ Change: NOT PROVIDED');
-
-                            if (data.per_change !== undefined) console.log('✅ % Change:', data.per_change);
-                            else console.log('❌ % Change: NOT PROVIDED');
-                            console.groupEnd();
-
-                            console.log('✅ LIVE UPDATE CONFIRMED');
-                            console.groupEnd();
+                            // Simplified logging to prevent UI lag
+                            // console.log(`tick: ${data.symbol} ${data.ltp}`);
 
                             // Handle ticks inside symbol block
                             this.handleQuoteUpdate(data);

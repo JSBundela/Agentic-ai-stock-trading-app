@@ -52,8 +52,21 @@ const OrderEntry: React.FC = () => {
         // Search already handled by debounce, but keep form submit for UX
     };
 
+    // Load persisted selection on mount
+    useEffect(() => {
+        const saved = sessionStorage.getItem('lastSelectedScrip');
+        if (saved) {
+            try {
+                setSelectedScrip(JSON.parse(saved));
+            } catch (e) {
+                console.error('Failed to restore selection', e);
+            }
+        }
+    }, []);
+
     const handleSelect = (scrip: Scrip) => {
         setSelectedScrip(scrip);
+        sessionStorage.setItem('lastSelectedScrip', JSON.stringify(scrip));
         setResults([]);
         setSearchTerm('');
     };

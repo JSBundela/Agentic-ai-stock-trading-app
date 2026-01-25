@@ -139,7 +139,7 @@ async def intent_classifier_node(state: AgentState) -> AgentState:
         response = await llm_client.chat_completion(
             messages=messages,
             model=AgentModels.ORCHESTRATOR,  # Claude Sonnet
-            max_tokens=1500,
+            max_tokens=900,
             json_mode=True
         )
         
@@ -158,8 +158,15 @@ async def intent_classifier_node(state: AgentState) -> AgentState:
         query_lower = state["user_query"].lower()
         
         # Market-related keywords
-        market_keywords = ["nifty", "sensex", "stock", "price", "down", "up", "movement", "increase", "decrease", "rally", "fall"]
-        market_questions = ["why", "explain", "what happened", "how come"]
+        # Market-related keywords
+        market_keywords = [
+            "nifty", "sensex", "stock", "price", "down", "up", "movement", 
+            "increase", "decrease", "rally", "fall", "market", "share", 
+            "bull", "bear", "crash", "correction", "high", "low", "red", "green",
+            "reliance", "tata", "hdfc", "infosys", "icici", "sbi", "wipro", 
+            "bajaj", "kotak", "mahindra", "adan"
+        ]
+        market_questions = ["why", "explain", "what happened", "how come", "analysis", "prediction", "forecast", "view", "outlook"]
         
         # If query asks "why/explain" + mentions market terms → force market_explainer
         has_market_term = any(keyword in query_lower for keyword in market_keywords)
@@ -298,7 +305,7 @@ async def market_explainer_node(state: AgentState) -> AgentState:
             response = await llm_client.chat_completion(
                 messages=messages,
                 model=AgentModels.MARKET_EXPLAINER,
-                max_tokens=1500
+                max_tokens=900
             )
             
             state["agent_response"] = response.get("choices", [{}])[0].get("message", {}).get("content", "Data unavailable")
@@ -368,7 +375,7 @@ async def trend_news_node(state: AgentState) -> AgentState:
             response = await llm_client.chat_completion(
                 messages=messages,
                 model=AgentModels.TREND_ANALYSIS,
-                max_tokens=500
+                max_tokens=900
             )
             
             state["agent_response"] = response.get("choices", [{}])[0].get("message", {}).get("content", "No news available")
@@ -413,7 +420,7 @@ async def data_interpreter_node(state: AgentState) -> AgentState:
         response = await llm_client.chat_completion(
             messages=messages,
             model=AgentModels.MARKET_EXPLAINER,
-            max_tokens=1500
+            max_tokens=900
         )
         
         state["agent_response"] = response.get("choices", [{}])[0].get("message", {}).get("content", "Unable to explain")
