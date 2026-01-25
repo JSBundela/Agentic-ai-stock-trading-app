@@ -385,7 +385,7 @@ class KotakHSMClient:
         }
 
         # LOG FOR VERIFICATION
-        logger.info(f"💎 [HSM] TICK: {normalized['symbol']} | LTP: {normalized['ltp']} | VOL: {normalized['volume']}")
+        # logger.info(f"💎 [HSM] TICK: {normalized['symbol']} | LTP: {normalized['ltp']} | VOL: {normalized['volume']}")
         
         for cb in self._callbacks:
             try:
