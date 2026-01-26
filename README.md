@@ -12,17 +12,25 @@ A full-stack trading application integrating **Kotak Neo API** with an **intelli
 
 ---
 
-## 📹 Demo
-
-[![Watch the Demo](https://img.shields.io/badge/Watch-Demo_Video-blue?style=for-the-badge&logo=youtube)](./docs/Stock_trading_app.mov)
+[![Watch the Demo](https://img.shields.io/badge/Watch-Demo_Video-blue?style=for-the-badge&logo=youtube)](./docs/demo.mov)
 
 *Click the badge above to download/watch the application demo video.*
 
 **Screenshots**:
-- Dashboard with live market data
-- AI Agent chat interface
-- Portfolio management
-- Order execution
+
+| Dashboard | Agent Interface |
+|:---:|:---:|
+| ![Dashboard](./docs/screenshot_1.png) | ![Agent](./docs/screenshot_2.png) |
+
+| Portfolio | Market Data |
+|:---:|:---:|
+| ![Portfolio](./docs/screenshot_3.png) | ![Market](./docs/screenshot_4.png) |
+
+| Trading | Analytics |
+|:---:|:---:|
+| ![Trading](./docs/screenshot_5.png) | ![Analytics](./docs/screenshot_6.png) |
+
+![Additional View](./docs/screenshot_7.png)
 
 ---
 
