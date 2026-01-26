@@ -70,7 +70,10 @@ const MiniIndexChart: React.FC<MiniIndexChartProps> = ({ indexName, tradingSymbo
             chart.timeScale().fitContent();
         } else {
             // Live Mode: Connect to WebSocket
-            const ws = new WebSocket(`ws://localhost:8000/ws/market/${tradingSymbol}`);
+            // Live Mode: Connect to WebSocket
+            const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+            const wsUrl = apiUrl.replace(/^http/, 'ws').replace(/\/$/, '');
+            const ws = new WebSocket(`${wsUrl}/ws/market/${tradingSymbol}`);
             wsRef.current = ws;
 
             const dataPoints: LineData[] = [];

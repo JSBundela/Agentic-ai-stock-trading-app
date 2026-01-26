@@ -11,7 +11,8 @@ interface ChartProps {
 async function fetchYahooFinanceData(symbol: string): Promise<CandlestickData[]> {
     try {
         // Call backend proxy instead of Yahoo Finance directly
-        const response = await fetch(`http://localhost:8000/historical/${symbol}`);
+        const baseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '');
+        const response = await fetch(`${baseUrl}/historical/${symbol}`);
 
         if (!response.ok) {
             console.warn(`Backend historical API returned ${response.status}`);
