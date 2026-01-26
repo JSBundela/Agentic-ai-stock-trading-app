@@ -23,3 +23,20 @@ session_cache.json
 debug_limits.json
 data/
 *.db
+
+# Test and validation files (local only)
+*_test.py
+*_audit*.py
+*_validation*.py
+verify_*.py
+test_*.py
+debug_*.py
+*_report.md
+*_results.json
+agent_comprehensive_test.py
+agent_test_report.md
+final_validation.py
+final_validation_report.md
+tool_validation_report.md
+robust_agent_test.py
+full_tool_audit.py
