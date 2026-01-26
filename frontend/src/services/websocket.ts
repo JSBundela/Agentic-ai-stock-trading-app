@@ -1,5 +1,5 @@
 // WebSocket service for REAL-TIME market data from backend
-// Connects to backend FastAPI WebSocket at ws://localhost:8000/ws/market-data
+// Connects to backend FastAPI WebSocket at ws://<backend>/ws/market-data
 // Backend relays live data from Kotak Neo WebSocket
 //
 // STEP 2: Enhanced with comprehensive logging for field verification
@@ -46,8 +46,9 @@ class WebSocketService {
         this.connectingPromise = new Promise((resolve, reject) => {
             try {
                 const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+                const wsUrlBase = apiUrl.replace(/^http/, 'ws').replace(/\/$/, '');
                 // Active router is at /ws/market-data as per router.py prefix
-                const wsUrl = apiUrl.replace('http', 'ws') + '/ws/market-data';
+                const wsUrl = `${wsUrlBase}/ws/market-data`;
 
                 // console.log(`Connecting to WebSocket: ${wsUrl}`);
 

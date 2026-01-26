@@ -46,9 +46,9 @@ function formatExpiry(isoDate: string | null): string {
  */
 async function fetchScrip(symbol: string): Promise<any> {
     try {
-        const API = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-        const res = await fetch(`${API}/scripmaster/scrip/${symbol}`);
-        const json = await res.json();
+        const API = (import.meta.env.VITE_API_URL || 'http://localhost:8000').replace(/\/$/, '');
+        const response = await fetch(`${API}/scripmaster/scrip/${symbol}`);
+        const json = await response.json();
         if (json.stat === 'Ok' && json.data) {
             scripCache.set(symbol, json.data);
             return json.data;
