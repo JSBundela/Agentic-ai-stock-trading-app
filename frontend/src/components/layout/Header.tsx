@@ -119,7 +119,7 @@ export const Header: React.FC = () => {
                 <div className="flex items-center gap-4 pl-6 border-l border-glass-border">
                     <div className="text-right hidden sm:block">
                         <p className="text-xs font-display font-black text-white uppercase tracking-tight">
-                            {user?.name || 'Guest'}
+                            J.S.Bundela
                         </p>
                     </div>
                     <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-brand to-indigo-800 flex items-center justify-center border border-white/20 shadow-lg shadow-brand/20">
