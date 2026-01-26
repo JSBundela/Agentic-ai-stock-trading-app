@@ -1,11 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { Bell, Search, User } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
 import { formatCurrency } from '../../utils/formatters';
 import { marketService } from '../../services/marketService';
 
 export const Header: React.FC = () => {
-    const { user } = useAuth();
     const [indices, setIndices] = useState({
         nifty: { price: 0, change: 0, pChange: 0 },
         sensex: { price: 0, change: 0, pChange: 0 }
