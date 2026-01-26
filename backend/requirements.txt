@@ -16,3 +16,4 @@ langgraph>=1.0.7
 langchain-core>=1.2.7
 duckduckgo-search>=6.0.0
 pytz==2025.2
+yfinance>=0.2.50

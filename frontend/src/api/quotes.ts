@@ -69,40 +69,38 @@ export async function fetchQuotes(symbol: string, exchange: string = 'nse_cm'): 
         // console.log('Response Length:', Array.isArray(data) ? data.length : 'N/A');
 
         if (Array.isArray(data) && data.length > 0) {
-            const quote = data[0];
-
             // Log key fields for verification
             console.group('📊 Verified Fields');
-            // console.log('LTP:', quote.ltp);
-            // console.log('Change:', quote.change);
-            // console.log('% Change:', quote.per_change);
-            // console.log('Display Symbol:', quote.display_symbol);
-            // console.log('Exchange:', quote.exchange);
-            // console.log('Last Update:', quote.lstup_time);
+            // console.log('LTP:', data[0].ltp);
+            // console.log('Change:', data[0].change);
+            // console.log('% Change:', data[0].per_change);
+            // console.log('Display Symbol:', data[0].display_symbol);
+            // console.log('Exchange:', data[0].exchange);
+            // console.log('Last Update:', data[0].lstup_time);
             console.groupEnd();
 
             console.group('📈 OHLC Data');
-            // console.log('Open:', quote.ohlc?.open);
-            // console.log('High:', quote.ohlc?.high);
-            // console.log('Low:', quote.ohlc?.low);
-            // console.log('Close:', quote.ohlc?.close);
+            // console.log('Open:', data[0].ohlc?.open);
+            // console.log('High:', data[0].ohlc?.high);
+            // console.log('Low:', data[0].ohlc?.low);
+            // console.log('Close:', data[0].ohlc?.close);
             console.groupEnd();
 
             console.group('📊 Market Depth');
-            // console.log('Buy Depth (5 levels):', quote.depth?.buy);
-            // console.log('Sell Depth (5 levels):', quote.depth?.sell);
+            // console.log('Buy Depth (5 levels):', data[0].depth?.buy);
+            // console.log('Sell Depth (5 levels):', data[0].depth?.sell);
             console.groupEnd();
 
             console.group('📉 Volume & Trading');
-            // console.log('Volume:', quote.last_volume);
-            // console.log('LastTradedQty:', quote.last_traded_quantity);
-            // console.log('Total Buy:', quote.total_buy);
-            // console.log('Total Sell:', quote.total_sell);
+            // console.log('Volume:', data[0].last_volume);
+            // console.log('LastTradedQty:', data[0].last_traded_quantity);
+            // console.log('Total Buy:', data[0].total_buy);
+            // console.log('Total Sell:', data[0].total_sell);
             console.groupEnd();
 
             console.group('📅 52-Week Range');
-            // console.log('52W High:', quote.year_high);
-            // console.log('52W Low:', quote.year_low);
+            // console.log('52W High:', data[0].year_high);
+            // console.log('52W Low:', data[0].year_low);
             console.groupEnd();
         } else {
             console.warn('⚠️  Empty or invalid response');
