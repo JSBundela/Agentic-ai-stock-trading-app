@@ -14,11 +14,9 @@ A full-stack trading application integrating **Kotak Neo API** with an **intelli
 
 ## 📹 Demo
 
-> **Note**: Add your demo video/GIF here
-> 
-> ```markdown
-> ![App Demo](./docs/demo.gif)
-> ```
+[![Watch the Demo](https://img.shields.io/badge/Watch-Demo_Video-blue?style=for-the-badge&logo=youtube)](./docs/Stock_trading_app.mov)
+
+*Click the badge above to download/watch the application demo video.*
 
 **Screenshots**:
 - Dashboard with live market data
@@ -436,7 +434,7 @@ This project is licensed under the MIT License - see [LICENSE](LICENSE) file.
 
 For issues and questions:
 - 📧 Email: your.email@example.com
-- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/repo/issues)
+- 🐛 Issues: [GitHub Issues](https://github.com/JSBundela/repo/issues)
 - 📖 Docs: [Full Documentation](./docs/README.md)
 
 ---
@@ -445,4 +443,4 @@ For issues and questions:
 
 ---
 
-Made with ❤️ by [Your Name]
+Made with ❤️ by JSBundela
