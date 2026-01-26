@@ -18,19 +18,19 @@ A full-stack trading application integrating **Kotak Neo API** with an **intelli
 
 **Screenshots**:
 
-| Dashboard | Agent Interface |
+| Login | Dashboard |
 |:---:|:---:|
-| ![Dashboard](./docs/screenshot_1.png) | ![Agent](./docs/screenshot_2.png) |
+| ![Login](./docs/screenshot_1.png) | ![Dashboard](./docs/screenshot_6.png) |
 
-| Portfolio | Market Data |
+| Trading | Funds |
 |:---:|:---:|
-| ![Portfolio](./docs/screenshot_3.png) | ![Market](./docs/screenshot_4.png) |
+| ![Trading](./docs/screenshot_2.png) | ![Funds](./docs/screenshot_5.png) |
 
-| Trading | Analytics |
+| Orders | Order Modification |
 |:---:|:---:|
-| ![Trading](./docs/screenshot_5.png) | ![Analytics](./docs/screenshot_6.png) |
+| ![Orders](./docs/screenshot_3.png) | ![Order modification](./docs/screenshot_4.png) |
 
-![Additional View](./docs/screenshot_7.png)
+![Agent Interface](./docs/screenshot_7.png)
 
 ---
 
