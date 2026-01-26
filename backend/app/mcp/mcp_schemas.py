@@ -264,6 +264,32 @@ class ApplyFilterOutput(BaseModel):
     response_shape: Dict[str, Any] = Field(default_factory=dict)
 
 
+class GenerateChartInput(BaseModel):
+    """Input schema for generateChart tool."""
+    symbol: str = Field(
+        ...,
+        description="Trading symbol to chart (e.g. RELIANCE, NIFTY 50)"
+    )
+    period: Literal["1d", "1w", "1m", "3m", "1y"] = Field(
+        default="1m",
+        description="Time period for the chart"
+    )
+
+class ChartDataPoint(BaseModel):
+    """Single data point for a chart."""
+    time: str
+    value: float
+
+class GenerateChartOutput(BaseModel):
+    """Output schema for generateChart tool."""
+    success: bool
+    type: Literal["chart"] = "chart"
+    symbol: str
+    data: List[ChartDataPoint]
+    period: str
+    response_shape: Dict[str, Any] = Field(default_factory=dict)
+
+
 # ===========================
 # Tool Call Log Schema
 # ===========================

@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { scripService } from '../services/scripService';
 import { wsService } from '../services/websocket';
+import { marketService } from '../services/marketService';
+
 import { ChartContainer } from '../components/ChartContainer';
 import { MarketDepth } from '../components/trading/MarketDepth';
 import { OrderForm } from '../components/trading/OrderForm';
@@ -13,7 +15,6 @@ import {
     ArrowLeft,
     TrendingUp,
     TrendingDown,
-    Zap,
     Clock,
     Target
 } from 'lucide-react';
@@ -30,9 +31,18 @@ const InstrumentPage: React.FC = () => {
 
         const fetchData = async () => {
             try {
+                console.log(`[DEBUG] Searching for scrip: ${symbol}`);
                 const searchRes = await scripService.search(symbol);
+                console.log(`[DEBUG] Search results for ${symbol}:`, searchRes);
+
                 const foundScrip = searchRes.data?.find((s: any) => s.tradingSymbol === symbol);
-                setScrip(foundScrip);
+
+                if (foundScrip) {
+                    console.log(`[DEBUG] Found scrip match:`, foundScrip);
+                    setScrip(foundScrip);
+                } else {
+                    console.warn(`[DEBUG] No exact scrip match for ${symbol}`);
+                }
             } catch (error) {
                 console.error('Failed to load instrument', error);
             } finally {
@@ -41,13 +51,60 @@ const InstrumentPage: React.FC = () => {
         };
 
         fetchData();
+        return () => {
+            // Cleanup if needed
+        };
+    }, [symbol]);
 
+    // Separate effect for Quote Subscription + Snapshot
+    useEffect(() => {
+        if (!symbol || !scrip) return;
+
+        // 1. Fetch Snapshot (for Market Closed / Initial State)
+        const fetchSnapshot = async () => {
+            try {
+                const token = `${scrip.exchangeSegment}|${scrip.instrumentToken}`;
+                console.log(`[DEBUG] Fetching snapshot for token: ${token}`);
+
+                const quotesData = await marketService.getQuotes([token]);
+                console.log(`[DEBUG] Snapshot response:`, quotesData);
+
+                if (quotesData && quotesData.length > 0) {
+                    const quote = quotesData[0];
+                    if (quote.error) {
+                        console.warn(`[DEBUG] Snapshot API returned error:`, quote.error);
+                        return;
+                    }
+
+                    console.log(`[DEBUG] Setting quotes state from snapshot:`, quote);
+                    setQuotes((prev: any) => ({
+
+                        ...prev,
+                        ltp: parseFloat(quote.ltp || quote.lastPrice || 0),
+                        change: parseFloat(quote.chn || quote.change || 0),
+                        pchange: parseFloat(quote.pc || quote.pChange || quote.per_change || 0),
+                        open: parseFloat(quote.ohlc?.open || quote.open || 0),
+                        high: parseFloat(quote.ohlc?.high || quote.high || 0),
+                        low: parseFloat(quote.ohlc?.low || quote.low || 0),
+                        vtt: parseFloat(quote.vtt || quote.volume || quote.last_volume || 0)
+                    }));
+                } else {
+                    console.warn(`[DEBUG] Snapshot response empty or invalid`);
+                }
+            } catch (error) {
+                console.error('Snapshot fetch error:', error);
+            }
+        };
+
+        fetchSnapshot();
+
+        // 2. Subscribe to Live Ticks
         const unsubscribe = wsService.subscribeQuotes(symbol, (data) => {
             setQuotes((prev: any) => ({ ...prev, ...data }));
         });
 
         return () => unsubscribe();
-    }, [symbol]);
+    }, [symbol, scrip]);
 
     if (loading) return (
         <div className="h-[80vh] flex flex-col items-center justify-center space-y-6">
@@ -152,45 +209,10 @@ const InstrumentPage: React.FC = () => {
                     <OrderForm
                         symbol={symbol!}
                         onOrderPlaced={() => navigate('/order-book')}
+                        initialLtp={quotes?.ltp}
                     />
 
-                    <Card title="Contract Intelligence" className="border-white/5">
-                        <div className="space-y-4">
-                            <div className="p-4 bg-obsidian-900 border border-white/[0.03] rounded-2xl flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand">
-                                    <Zap size={20} />
-                                </div>
-                                <div>
-                                    <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Router Channel</p>
-                                    <p className="text-xs font-display font-black text-white">LOW LATENCY ALPHA</p>
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="p-4 bg-white/[0.01] border border-white/[0.03] rounded-2xl">
-                                    <p className="text-[9px] text-gray-600 font-bold uppercase tracking-widest mb-1">Tick Size</p>
-                                    <p className="text-sm font-mono font-black text-white">0.05</p>
-                                </div>
-                                <div className="p-4 bg-white/[0.01] border border-white/[0.03] rounded-2xl">
-                                    <p className="text-[9px] text-gray-600 font-bold uppercase tracking-widest mb-1">Lot Size</p>
-                                    <p className="text-sm font-mono font-black text-white">{scrip?.lotSize || 1}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </Card>
 
-                    <div className="p-8 bg-gradient-to-br from-obsidian-900 to-obsidian-950 border border-brand/20 rounded-3xl shadow-[0_0_50px_rgba(99,102,241,0.1)] relative overflow-hidden group">
-                        <div className="relative z-10 flex flex-col items-center text-center space-y-4">
-                            <div className="w-12 h-12 rounded-full bg-brand/20 border border-brand/50 flex items-center justify-center text-brand animate-pulse">
-                                <Activity size={24} />
-                            </div>
-                            <div>
-                                <h4 className="text-white font-display font-black text-lg tracking-tight">ALGO SIGNAL ACTIVE</h4>
-                                <p className="text-[9px] text-gray-500 font-bold uppercase tracking-widest mt-1">Institutional Flow Detected</p>
-                            </div>
-                            <Button variant="glass" size="sm" className="w-full border-brand/30 hover:bg-brand/10">ENABLE AUTOPILOT</Button>
-                        </div>
-                        <div className="absolute top-[-20px] left-[-20px] w-40 h-40 bg-brand/10 blur-[60px] rounded-full pointer-events-none group-hover:scale-150 transition-transform duration-1000" />
-                    </div>
                 </div>
             </div>
         </div>

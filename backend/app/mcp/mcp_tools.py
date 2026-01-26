@@ -9,6 +9,7 @@ from typing import Dict, Any, List, Optional
 from duckduckgo_search import DDGS
 from app.mcp.mcp_schemas import *
 from app.mcp.mcp_logger import logger
+import yfinance as yf
 from app.market.service import MarketService
 from app.portfolio.service import PortfolioService
 from app.orders.service import OrderService
@@ -36,8 +37,11 @@ class MCPTools:
         tool_name = "getQuotes"
         
         try:
+            # Prepend nse_cm| if missing
+            symbols = [s if "|" in s else f"nse_cm|{s}" for s in input_data.symbols]
+            
             # Call underlying service (returns list directly)
-            result = await self.market_service.get_quotes(input_data.symbols)
+            result = await self.market_service.get_quotes(symbols)
             
             # Parse response
             quotes = []
@@ -106,19 +110,22 @@ class MCPTools:
         
         try:
             # Map index names to API tokens
-            index_tokens = {
-                "NIFTY 50": "nse_cm|Nifty 50",
-                "NIFTY BANK": "nse_cm|Nifty Bank",
-                "SENSEX": "bse_cm|SENSEX",
-                "NIFTY IT": "nse_cm|Nifty IT"
+            index_mapping = {
+                "NIFTY 50": "Nifty 50",
+                "NIFTY BANK": "Nifty Bank",
+                "SENSEX": "SENSEX",
+                "NIFTY IT": "Nifty IT"
             }
             
-            token = index_tokens.get(input_data.index)
-            if not token:
-                raise ValueError(f"Unknown index: {input_data.index}")
+            # Determine the correct instrument token based on the index name
+            # If it's SENSEX, use bse_cm|, otherwise default to nse_cm|
+            if input_data.index.upper() == "SENSEX":
+                index_token = f"bse_cm|{index_mapping.get(input_data.index, input_data.index)}"
+            else:
+                index_token = f"nse_cm|{index_mapping.get(input_data.index, input_data.index)}"
             
-            # Call underlying service (returns list directly)
-            result = await self.market_service.get_quotes([token])
+            # Call underlying service
+            result = await self.market_service.get_quotes([index_token])
             
             # Parse response
             index_data = IndexQuoteData(
@@ -246,13 +253,12 @@ class MCPTools:
             
             limits_data = LimitsData()
             
-            if result.get("stat") == "Ok" and result.get("data"):
-                data = result["data"]
-                # Map API fields (check kotak_api_documentation.md for exact names)
-                limits_data.cash_available = data.get("cashAvailable")
-                limits_data.collateral = data.get("collateralValue")
-                limits_data.margin_used = data.get("marginUsed")
-                limits_data.total_limit = data.get("totalLimit")
+            if result.get("stat") == "Ok":
+                # Map API fields (Kotak API uses PascalCase at the root for limits)
+                limits_data.cash_available = result.get("Net")
+                limits_data.collateral = result.get("CollateralValue")
+                limits_data.margin_used = result.get("MarginUsed")
+                limits_data.total_limit = result.get("NotionalCash")
             else:
                 limits_data.error = result.get("message", "Data unavailable")
             
@@ -618,6 +624,84 @@ class MCPTools:
                 action="filter",
                 params={},
                 response_shape={}
+            )
+
+    async def generate_chart(self, input_data: GenerateChartInput) -> GenerateChartOutput:
+        """
+        Generate chart data for a symbol.
+        
+        Uses yfinance to fetch historical data.
+        """
+        start_time = time.time()
+        tool_name = "generateChart"
+        
+        try:
+            symbol = input_data.symbol
+            
+            # 1. Specialized Symbol Mapping (yfinance specific)
+            mapping = {
+                "NIFTY 50": "^NSEI",
+                "NIFTY BANK": "^NSEBANK",
+                "SENSEX": "^BSESN",
+                "NIFTY IT": "^CNXIT"
+            }
+            
+            yf_symbol = mapping.get(symbol.upper(), symbol)
+            
+            # 2. Add exchange suffix if needed (default to .NS for NSE)
+            if not any(yf_symbol.endswith(s) for s in [".NS", ".BO", "^NSEI", "^BSESN", "^NSEBANK", "^CNXIT"]):
+                yf_symbol = f"{yf_symbol}.NS"
+                
+            # Fetch data with retry logic for different exchanges
+            hist = yf.Ticker(yf_symbol).history(period=input_data.period)
+            
+            if hist.empty and ".NS" in yf_symbol:
+                # Try BSE if NSE failed
+                yf_symbol = yf_symbol.replace(".NS", ".BO")
+                hist = yf.Ticker(yf_symbol).history(period=input_data.period)
+            
+            data_points = []
+            for date, row in hist.iterrows():
+                data_points.append(ChartDataPoint(
+                    time=date.strftime("%Y-%m-%d"),
+                    value=float(row['Close'])
+                ))
+            
+            latency_ms = (time.time() - start_time) * 1000
+            
+            logger.log_tool_call(
+                tool_name=tool_name,
+                arguments=input_data.model_dump(),
+                success=True,
+                response_shape={"count": len(data_points)},
+                latency_ms=latency_ms
+            )
+            
+            return GenerateChartOutput(
+                success=True,
+                symbol=input_data.symbol,
+                data=data_points,
+                period=input_data.period,
+                response_shape={"count": len(data_points)}
+            )
+            
+        except Exception as e:
+            latency_ms = (time.time() - start_time) * 1000
+            logger.log_tool_call(
+                tool_name=tool_name,
+                arguments=input_data.model_dump(),
+                success=False,
+                response_shape={},
+                latency_ms=latency_ms,
+                error=str(e)
+            )
+            
+            return GenerateChartOutput(
+                success=False,
+                symbol=input_data.symbol,
+                data=[],
+                period=input_data.period,
+                response_shape={"error": str(e)}
             )
 
 

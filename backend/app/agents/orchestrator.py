@@ -9,7 +9,7 @@ class OrchestratorAgent:
     
     AVAILABLE AGENTS:
     1. MARKET_EXPLAINER: Explains price movements, volume, volatility of specific stocks or indices.
-       - Triggers: "Why is Nifty down?", "Explain Reliance price action", "What's happening with Tata Motors?"
+       - Triggers: "What is the price of RELIANCE?", "Get quote for TCS", "Why is Nifty down?", "Show market depth", "Current value of SBIN"
     
     2. TREND_NEWS: Summarizes news and broad market trends.
        - Triggers: "Latest news on HDFC", "Market outlook", "Sector performance news"
@@ -18,7 +18,7 @@ class OrchestratorAgent:
        - Triggers: "Go to funds", "Show open orders", "Where is the option chain?", "Open Dashboard"
        
     4. DATA_INTERPRETER: Explains trading terms, order statuses, or calculations.
-       - Triggers: "What is margin?", "Why was order rejected?", "Calculate brokerage"
+       - Triggers: "What is margin?", "Why was order rejected?", "Calculate brokerage", "Define limit order"
        
     5. GENERAL_CHAT: Simple greetings or out-of-scope non-trading questions.
     

@@ -2,13 +2,17 @@
  * Utility functions for formatting
  */
 
-export const formatCurrency = (value: number | string): string => {
+export const formatCurrency = (value: number | string | undefined | null): string => {
+    if (value === undefined || value === null) return '₹0.00';
     const num = typeof value === 'string' ? parseFloat(value) : value;
+    if (isNaN(num)) return '₹0.00';
     return `₹${num.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
-export const formatNumber = (value: number | string): string => {
+export const formatNumber = (value: number | string | undefined | null): string => {
+    if (value === undefined || value === null) return '0';
     const num = typeof value === 'string' ? parseFloat(value) : value;
+    if (isNaN(num)) return '0';
     return num.toLocaleString('en-IN');
 };
 

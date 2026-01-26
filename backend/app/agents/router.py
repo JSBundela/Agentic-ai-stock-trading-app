@@ -36,12 +36,15 @@ async def agent_chat(request: ChatRequest):
             "session_id": session_id,
             "chat_history": history,
             "intent": None,
+            "intents": [],
             "parameters": {},
             "mcp_tool_calls": [],
             "agent_response": "",
+            "agent_responses": {},
             "agent_name": None,
             "debug_info": None,
-            "error": None
+            "error": None,
+            "visited_intents": []
         }
         
         # 4. Invoke LangGraph

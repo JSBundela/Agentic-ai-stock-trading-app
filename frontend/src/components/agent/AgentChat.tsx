@@ -4,12 +4,20 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../../api/client';
 
+import MiniIndexChart from '../MiniIndexChart';
+
 interface Message {
     id: string;
     role: 'user' | 'assistant';
     content: string;
     timestamp: number;
     intent?: string;
+    widget?: {
+        type: 'chart';
+        data: { time: string; value: number }[];
+        symbol: string;
+        period: string;
+    } | null;
 }
 
 export const AgentChat: React.FC = () => {
@@ -53,9 +61,26 @@ export const AgentChat: React.FC = () => {
             const responseContent = data.response.content;
             const orchestration = data.orchestration;
 
-            // Handle Actions
-            if (data.response.route) {
-                navigate(data.response.route);
+            // Handle Actions from MCP Tool Calls
+            let chartWidget = null;
+            if (data.mcp_tool_calls && Array.isArray(data.mcp_tool_calls)) {
+                // 1. Check for Navigation
+                const navCall = data.mcp_tool_calls.find((t: any) => t.tool === 'navigateTo' && t.result.success);
+                if (navCall && navCall.args?.route) {
+                    console.info(`[Agent] Navigating to ${navCall.args.route}`);
+                    navigate(navCall.args.route);
+                }
+
+                // 2. Check for Chart Widget
+                const chartCall = data.mcp_tool_calls.find((t: any) => t.tool === 'generateChart' && t.result.success);
+                if (chartCall) {
+                    chartWidget = {
+                        type: 'chart',
+                        data: chartCall.result.data,
+                        symbol: chartCall.result.symbol,
+                        period: chartCall.result.period
+                    };
+                }
             }
 
             const botMsg: Message = {
@@ -63,7 +88,8 @@ export const AgentChat: React.FC = () => {
                 role: 'assistant',
                 content: typeof responseContent === 'string' ? responseContent : JSON.stringify(responseContent),
                 timestamp: Date.now(),
-                intent: orchestration?.agent
+                intent: orchestration?.agent,
+                widget: chartWidget as any
             };
 
             setMessages(prev => [...prev, botMsg]);
@@ -156,6 +182,18 @@ export const AgentChat: React.FC = () => {
                                             </span>
                                         )}
                                         <p className="text-xs leading-relaxed font-medium">{msg.content}</p>
+
+                                        {/* Chart Widget Rendering */}
+                                        {msg.widget && msg.widget.type === 'chart' && (
+                                            <div className="mt-3 w-64 h-40 bg-black/20 rounded-lg p-2 border border-white/5">
+                                                <MiniIndexChart
+                                                    staticData={msg.widget.data}
+                                                    tradingSymbol={msg.widget.symbol}
+                                                    indexName={msg.widget.symbol}
+                                                    color={msg.widget.data[msg.widget.data.length - 1]?.value >= msg.widget.data[0]?.value ? '#10b981' : '#ef4444'}
+                                                />
+                                            </div>
+                                        )}
                                     </div>
                                 </motion.div>
                             ))}

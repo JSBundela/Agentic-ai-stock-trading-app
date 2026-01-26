@@ -1,0 +1,114 @@
+[
+  {
+    "question": "What is the current price of RELIANCE?",
+    "tool": "getQuotes",
+    "agent": "MarketExplainer",
+    "response_preview": "Error processing market data: list index out of range...",
+    "status": "\u2705 USED",
+    "actual_tools": [
+      "getQuotes"
+    ]
+  },
+  {
+    "question": "What is the value of NIFTY 50?",
+    "tool": "getIndexQuotes",
+    "agent": "MarketExplainer",
+    "response_preview": "The NIFTY 50 index is currently valued at 25048.65. The market showed a decline, with the price decr...",
+    "status": "\u2705 USED",
+    "actual_tools": [
+      "getIndexQuotes"
+    ]
+  },
+  {
+    "question": "Show me the market depth for TCS.",
+    "tool": "getMarketDepth",
+    "agent": "MarketExplainer",
+    "response_preview": "- Market data for TCS is not provided.\n- The available data is for NIFTY 50, which does not include ...",
+    "status": "\u2705 USED",
+    "actual_tools": [
+      "getMarketDepth"
+    ]
+  },
+  {
+    "question": "What is the latest news on Tata Motors?",
+    "tool": "searchNews",
+    "agent": "TrendNews",
+    "response_preview": "- Reports indicate that Tata Motors has recently launched new vehicles across various segments.\n- Ne...",
+    "status": "\u2705 USED",
+    "actual_tools": [
+      "searchNews"
+    ]
+  },
+  {
+    "question": "How much margin do I have?",
+    "tool": "getLimits",
+    "agent": "DataInterpreter",
+    "response_preview": "You have 0 margin used, and you have 40 cash available. Since you have no margin used, you can use u...",
+    "status": "\u2705 USED",
+    "actual_tools": [
+      "getLimits"
+    ]
+  },
+  {
+    "question": "Show me my rejected orders.",
+    "tool": "getOrders",
+    "agent": "DataInterpreter",
+    "response_preview": "- You have a filter applied for 'status': 'REJECTED'.\n- This means you are currently viewing only th...",
+    "status": "\u2705 USED",
+    "actual_tools": [
+      "getOrders",
+      "applyFilter"
+    ]
+  },
+  {
+    "question": "What are my current open positions?",
+    "tool": "getPositions",
+    "agent": "DataInterpreter",
+    "response_preview": "You have no open positions....",
+    "status": "\u2705 USED",
+    "actual_tools": [
+      "getPositions"
+    ]
+  },
+  {
+    "question": "Take me to the funds page.",
+    "tool": "navigateTo",
+    "agent": "UINavigation",
+    "response_preview": "Navigating to /funds...",
+    "status": "\u2705 USED",
+    "actual_tools": [
+      "navigateTo"
+    ]
+  },
+  {
+    "question": "Show me a chart of NIFTY 50.",
+    "tool": "generateChart",
+    "agent": "MarketExplainer",
+    "response_preview": "Here is the 1m chart for NIFTY 50....",
+    "status": "\u2705 USED",
+    "actual_tools": [
+      "generateChart"
+    ]
+  },
+  {
+    "question": "Is the real-time market feed working?",
+    "tool": "getWebSocketStatus",
+    "agent": "DataInterpreter",
+    "response_preview": "According to the WebSocket Status, you are \"Connected: True\", which suggests that the real-time mark...",
+    "status": "\u2705 USED",
+    "actual_tools": [
+      "getWebSocketStatus"
+    ]
+  },
+  {
+    "question": "Show me only my MIS rejected orders.",
+    "tool": "applyFilter",
+    "agent": "DataInterpreter",
+    "response_preview": "- You have applied a filter for 'product': 'MIS' and 'status': 'REJECTED'.\n- However, the specific r...",
+    "status": "\u2705 USED",
+    "actual_tools": [
+      "getOrders",
+      "applyFilter"
+    ]
+  }
+]

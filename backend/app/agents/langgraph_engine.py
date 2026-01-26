@@ -35,17 +35,21 @@ class AgentState(TypedDict):
     chat_history: List[Dict[str, Any]]
     
     # Intent classification
-    intent: Optional[Literal["market_explainer", "trend_news", "data_interpreter", "ui_navigation", "debug"]]
+    # Intent classification
+    intent: Optional[str]  # Kept for backward compat
+    intents: List[str]
     parameters: Dict[str, Any]
     
     # Agent execution
     mcp_tool_calls: List[Dict[str, Any]]
     agent_response: str
+    agent_responses: Dict[str, str] # Store results from multiple agents
     agent_name: Optional[str]
     
     # Debug/observability
     debug_info: Optional[Dict[str, Any]]
     error: Optional[str]
+    visited_intents: List[str]
 
 
 # ==========================
@@ -110,9 +114,15 @@ async def intent_classifier_node(state: AgentState) -> AgentState:
     
     Return JSON format:
     {
-      "intent": "market_explainer",
-      "parameters": {"symbol": "NIFTY 50"}
+      "intents": ["market_explainer", "trend_news"],
+      "parameters": {"symbol": "NIFTY 50", "query": "NIFTY 50 news"}
     }
+    
+    Examples:
+    {"role": "user", "content": "Show me a chart of NIFTY and tell me news"},
+    {"role": "assistant", "content": '{"intents": ["market_explainer", "trend_news"], "parameters": {"symbol": "NIFTY 50", "query": "NIFTY news"}}'},
+    {"role": "user", "content": "Go to funds page"},
+    {"role": "assistant", "content": '{"intents": ["ui_navigation"], "parameters": {"route": "/funds"}}'},
     
     Extract stock symbols, index names (NIFTY 50, SENSEX, etc.), or route names into parameters.
     For market_explainer: extract "symbol"
@@ -120,20 +130,18 @@ async def intent_classifier_node(state: AgentState) -> AgentState:
     For ui_navigation: extract "route" (/funds, /orders, etc.)
     """
     
+    # 1. Build message list starting with System Prompt
     messages = [
         {"role": "system", "content": system_prompt},
-        # Few-shot examples
-        {"role": "user", "content": "Why is NIFTY down?"},
-        {"role": "assistant", "content": '{"intent": "market_explainer", "parameters": {"symbol": "NIFTY 50"}}'},
-        {"role": "user", "content": "Latest news on Reliance"},
-        {"role": "assistant", "content": '{"intent": "trend_news", "parameters": {"query": "Reliance news"}}'},
-        {"role": "user", "content": "What is margin?"},
-        {"role": "assistant", "content": '{"intent": "data_interpreter", "parameters": {}}'},
-        {"role": "user", "content": "Go to funds page"},
-        {"role": "assistant", "content": '{"intent": "ui_navigation", "parameters": {"route": "/funds"}}'},
-        # Actual user query
-        {"role": "user", "content": state["user_query"]}
     ]
+    
+    # 2. Add Chat History (limited to last 4 for context)
+    if state.get("chat_history"):
+        for msg in state["chat_history"][-4:]:
+            messages.append({"role": msg["role"], "content": msg["content"]})
+    
+    # 3. Add current query
+    messages.append({"role": "user", "content": state["user_query"]})
     
     try:
         response = await llm_client.chat_completion(
@@ -151,13 +159,22 @@ async def intent_classifier_node(state: AgentState) -> AgentState:
         import json
         classification = json.loads(result)
         
-        intent = classification.get("intent", "data_interpreter")
+        # 2. Extract initial intents from LLM output
+        intents = classification.get("intents", [])
+        if not intents and "intent" in classification:
+            intents = [classification["intent"]]
+        
+        # Fallback to data_interpreter if nothing found
+        if not intents:
+            intents = ["data_interpreter"]
+        
+        intents = set(intents) # Use set for uniqueness during overrides
+        
         parameters = classification.get("parameters", {})
         
         # HYBRID APPROACH: Keyword-based fallback override
         query_lower = state["user_query"].lower()
         
-        # Market-related keywords
         # Market-related keywords
         market_keywords = [
             "nifty", "sensex", "stock", "price", "down", "up", "movement", 
@@ -166,30 +183,69 @@ async def intent_classifier_node(state: AgentState) -> AgentState:
             "reliance", "tata", "hdfc", "infosys", "icici", "sbi", "wipro", 
             "bajaj", "kotak", "mahindra", "adan"
         ]
-        market_questions = ["why", "explain", "what happened", "how come", "analysis", "prediction", "forecast", "view", "outlook"]
+        market_questions = ["why", "explain", "what happened", "how come", "analysis", "forecast", "view", "outlook", "what is", "show", "get", "check", "price", "movement", "quote", "about", "tell", "details"]
         
-        # If query asks "why/explain" + mentions market terms → force market_explainer
+        # Individual stock symbols (not indices)
+        stock_symbols = ["reliance", "tata", "hdfc", "infosys", "infy", "icici", "sbi", "wipro", "bajaj", "kotak", "mahindra", "adani"]
+        
+        # Calculate market term and question presence
         has_market_term = any(keyword in query_lower for keyword in market_keywords)
         has_question = any(q in query_lower for q in market_questions)
         
-        if has_market_term and has_question and intent == "data_interpreter":
-            logger.info(f"[IntentClassifier] OVERRIDE: Keyword match detected, forcing market_explainer")
-            intent = "market_explainer"
-            # Extract symbol from query
-            if "nifty" in query_lower:
+        # Check for individual stock queries (RELIANCE, HDFC, INFY etc.)
+        has_stock_symbol = any(stock in query_lower for stock in stock_symbols)
+        if has_stock_symbol:
+            logger.info(f"[IntentClassifier] OVERRIDE: Stock symbol detected, add market_explainer")
+            intents.add("market_explainer")
+            if "data_interpreter" in intents and len(intents) > 1:
+                intents.remove("data_interpreter")
+        # Otherwise check for general market queries
+        elif has_market_term and (has_question or len(state["user_query"].split()) <= 2):
+            logger.info(f"[IntentClassifier] OVERRIDE: Market match detected (term + question/short query), add market_explainer")
+            intents.add("market_explainer")
+            if "data_interpreter" in intents and len(intents) > 1:
+                intents.remove("data_interpreter")
+        
+        # Data related overrides (Orders/Status/Filter)
+        data_keywords = ["rejected", "status", "working", "connected", "filter", "mis", "cnc", "nrml"]
+        if any(k in query_lower for k in data_keywords):
+            logger.info(f"[IntentClassifier] OVERRIDE: Data keyword detected, add data_interpreter")
+            intents.add("data_interpreter")
+
+        # Extract symbol from query
+        if "market_explainer" in intents:
+            if "nifty 50" in query_lower or ("nifty" in query_lower and "bank" not in query_lower):
                 parameters["symbol"] = "NIFTY 50"
+            elif "nifty bank" in query_lower:
+                parameters["symbol"] = "NIFTY BANK"
             elif "sensex" in query_lower:
                 parameters["symbol"] = "SENSEX"
+            elif "reliance" in query_lower:
+                parameters["symbol"] = "RELIANCE"
+            elif "hdfc" in query_lower:
+                parameters["symbol"] = "HDFCBANK"
+            elif "tata" in query_lower:
+                parameters["symbol"] = "TATAMOTORS"
+            elif "infy" in query_lower or "infosys" in query_lower:
+                parameters["symbol"] = "INFY"
+            elif "icici" in query_lower:
+                parameters["symbol"] = "ICICIBANK"
+            elif "sbi" in query_lower:
+                parameters["symbol"] = "SBIN"
         
-        # News keywords - improved to catch more variations
-        news_keywords = ["news", "latest", "updates", "headlines", "reports", "trending"]
-        news_contexts = ["stock market", "market", "trading", "stocks", "indices"]
-        
-        # Check if query asks for news (even with "tell me" or "about")
+        # News keywords
+        news_keywords = ["news", "latest", "updates", "headlines", "reports", "trending", "current affairs"]
         has_news_keyword = any(keyword in query_lower for keyword in news_keywords)
-        if has_news_keyword:
-            logger.info(f"[IntentClassifier] OVERRIDE: News keyword detected, forcing trend_news")
-            intent = "trend_news"
+        
+        # News contexts (added news contexts if missing in previous content)
+        news_contexts = ["market", "stocks", "economy", "india", "finance"]
+
+        # Don't force news if it's just a symbol (like "RELIANCE news" vs "RELIANCE")
+        if has_news_keyword and len(query_lower.split()) > 1:
+            logger.info(f"[IntentClassifier] OVERRIDE: News keyword detected, add trend_news")
+            intents.add("trend_news")
+            if "data_interpreter" in intents and len(intents) > 1:
+                intents.remove("data_interpreter")
             # Extract search query - use everything after "about" if present, else use full query
             if " about " in query_lower:
                 search_term = state["user_query"].split(" about ", 1)[1].strip()
@@ -198,21 +254,30 @@ async def intent_classifier_node(state: AgentState) -> AgentState:
                 search_term = "Indian stock market" if any(ctx in query_lower for ctx in news_contexts) else state["user_query"]
             parameters["query"] = search_term
         
-        # Navigation keywords
-        nav_keywords = ["go to", "goto", "navigate", "show", "open", "take me to"]
-        nav_dest = ["portfolio", "orders", "order book", "orderbook", "funds", "dashboard", "home", "holdings", "positions"]
+        
+        # Navigation keywords - HIGH PRIORITY (check before checking destinations)
+        nav_keywords = ["go to", "goto", "navigate", "take me to", "open", "show me the"]
+        has_nav_keyword = any(keyword in query_lower for keyword in nav_keywords)
+        
+        if has_nav_keyword:
+            logger.info(f"[IntentClassifier] OVERRIDE: Navigation keyword detected, add ui_navigation")
+            intents.add("ui_navigation")
+            if "data_interpreter" in intents and len(intents) > 1:
+                intents.remove("data_interpreter")
+        
+        # Navigation destinations
+        nav_dest = ["portfolio", "orders", "order book", "orderbook", "funds", "dashboard", "home", "holdings", "market watch", "marketwatch"] 
         
         # Map destinations to routes (MUST match MCP NavigateToInput schema)
         route_map = {
-            "portfolio": "/holdings",      # Map portfolio->holdings
-            "orders": "/orders",           # Fixed from /order-book
-            "order book": "/orders",       # Fixed from /order-book
-            "orderbook": "/orders",        # Fixed from /order-book
+            "portfolio": "/holdings",
+            "orders": "/orders",
+            "order book": "/orders",
+            "orderbook": "/orders",
             "funds": "/funds",
-            "dashboard": "/dashboard",     # Fixed from /
-            "home": "/dashboard",          # Fixed from /
+            "dashboard": "/dashboard",
+            "home": "/dashboard",
             "holdings": "/holdings",
-            "positions": "/positions",     # Fixed from /portfolio
             "market watch": "/market-watch",
             "marketwatch": "/market-watch"
         }
@@ -221,7 +286,10 @@ async def intent_classifier_node(state: AgentState) -> AgentState:
         has_nav_keyword = any(keyword in query_lower for keyword in nav_keywords)
         has_destination = any(dest in query_lower for dest in nav_dest)
         
-        if has_nav_keyword or has_destination:
+        # Guard: Don't navigate if user is asking for specific data or filters
+        is_data_query = any(k in query_lower for k in ["rejected", "filter", "mis", "position", "p&l", "profit", "loss", "mtm"])
+        
+        if (has_nav_keyword or has_destination) and not is_data_query:
             logger.info(f"[IntentClassifier] OVERRIDE: Navigation detected, forcing ui_navigation")
             intent = "ui_navigation"
             # Find which destination
@@ -232,10 +300,12 @@ async def intent_classifier_node(state: AgentState) -> AgentState:
             if "route" not in parameters:
                 parameters["route"] = "/"
         
-        state["intent"] = intent
+        state["intents"] = list(intents)
         state["parameters"] = parameters
+        state["visited_intents"] = []
+        state["agent_responses"] = {}
         
-        logger.info(f"[IntentClassifier] Final Intent: {state['intent']}, Parameters: {state['parameters']}")
+        logger.info(f"[IntentClassifier] Final Intents: {state['intents']}, Parameters: {state['parameters']}")
         
     except Exception as e:
         logger.error(f"[IntentClassifier] Failed: {e}")
@@ -260,7 +330,19 @@ async def market_explainer_node(state: AgentState) -> AgentState:
         symbol = state["parameters"].get("symbol", "NIFTY 50")
         
         # Call MCP tool
-        if "NIFTY" in symbol.upper() or "SENSEX" in symbol.upper():
+        # Check for Market Depth intent
+        if any(k in state['user_query'].lower() for k in ["depth", "bids", "asks", "orderbook", "order book"]):
+            tool_result = await mcp_server.call_tool("getMarketDepth", {"symbol": symbol})
+            state["mcp_tool_calls"].append({
+                "tool": "getMarketDepth",
+                "args": {"symbol": symbol},
+                "result": tool_result
+            })
+        # Removed chart generation to reduce tokens
+
+        
+        # Route to appropriate quote tool
+        if symbol.upper() in ["NIFTY 50", "NIFTY BANK", "SENSEX", "NIFTY IT"]:
             tool_result = await mcp_server.call_tool("getIndexQuotes", {"index": symbol})
             state["mcp_tool_calls"].append({
                 "tool": "getIndexQuotes",
@@ -276,15 +358,19 @@ async def market_explainer_node(state: AgentState) -> AgentState:
             })
         
         # Extract data
-        if tool_result.get("success"):
+        if tool_result.get("success") and tool_result.get("data") and (isinstance(tool_result["data"], dict) or len(tool_result["data"]) > 0):
             data = tool_result.get("data", {})
             
             # Build context for LLM
+            ltp = data.get('ltp') if isinstance(data, dict) else (data[0].get('ltp') if data else 'Unknown')
+            change = data.get('change') if isinstance(data, dict) else (data[0].get('change') if data else 'Unknown')
+            p_change = data.get('percent_change') if isinstance(data, dict) else (data[0].get('percent_change') if data else 'Unknown')
+
             context = f"""
             Market Data for {symbol}:
-            - Last Price: {data.get('ltp') if isinstance(data, dict) else data[0].get('ltp')}
-            - Change: {data.get('change') if isinstance(data, dict) else data[0].get('change')}
-            - % Change: {data.get('percent_change') if isinstance(data, dict) else data[0].get('percent_change')}
+            - Last Price: {ltp}
+            - Change: {change}
+            - % Change: {p_change}
             """
             
             # Generate explanation with safety constraints
@@ -297,12 +383,19 @@ async def market_explainer_node(state: AgentState) -> AgentState:
             - NEVER say "good time to buy" or "sell now"
             - NO trading advice or recommendations
             - Be factual and objective
+            - IMPORTANT: You ARE able to show charts and graphs via your tools. NEVER tell the user you are a "text-based model" or "cannot show images".
             """
             
             messages = [
                 {"role": "system", "content": safety_prompt},
-                {"role": "user", "content": f"Query: {state['user_query']}\n\nData: {context}"}
             ]
+            
+            # Add context from history
+            if state.get("chat_history"):
+                for msg in state["chat_history"][-2:]:
+                    messages.append({"role": msg["role"], "content": msg["content"]})
+            
+            messages.append({"role": "user", "content": f"Query: {state['user_query']}\n\nData: {context}"})
             
             response = await llm_client.chat_completion(
                 messages=messages,
@@ -310,15 +403,16 @@ async def market_explainer_node(state: AgentState) -> AgentState:
                 max_tokens=900
             )
             
-            state["agent_response"] = response.get("choices", [{}])[0].get("message", {}).get("content", "Data unavailable")
+            state["agent_responses"]["market_explainer"] = response.get("choices", [{}])[0].get("message", {}).get("content", "Data unavailable")
         else:
-            state["agent_response"] = f"Unable to fetch data for {symbol}. {tool_result.get('errors', [''])}"
+            state["agent_responses"]["market_explainer"] = f"Unable to fetch data for {symbol}. {tool_result.get('errors', [''])}"
             
     except Exception as e:
         logger.error(f"[MarketExplainer] Failed: {e}")
-        state["agent_response"] = f"Error processing market data: {str(e)}"
+        state["agent_responses"]["market_explainer"] = f"Error processing market data: {str(e)}"
         state["error"] = str(e)
     
+    state["visited_intents"].append("market_explainer")
     return state
 
 
@@ -367,12 +461,19 @@ async def trend_news_node(state: AgentState) -> AgentState:
             - NO recommendations
             - Use phrases like "Reports indicate...", "News suggests..."
             - Be neutral and factual
+            - IMPORTANT: You ARE able to show news summaries and headlines. NEVER tell the user you "cannot search the internet".
             """
             
             messages = [
                 {"role": "system", "content": safety_prompt},
-                {"role": "user", "content": f"Query: {state['user_query']}\n\nNews Articles:\n{news_context}"}
             ]
+            
+            # Add context from history
+            if state.get("chat_history"):
+                for msg in state["chat_history"][-2:]:
+                    messages.append({"role": msg["role"], "content": msg["content"]})
+                    
+            messages.append({"role": "user", "content": f"Query: {state['user_query']}\n\nNews Articles:\n{news_context}"})
             
             response = await llm_client.chat_completion(
                 messages=messages,
@@ -380,15 +481,16 @@ async def trend_news_node(state: AgentState) -> AgentState:
                 max_tokens=900
             )
             
-            state["agent_response"] = response.get("choices", [{}])[0].get("message", {}).get("content", "No news available")
+            state["agent_responses"]["trend_news"] = response.get("choices", [{}])[0].get("message", {}).get("content", "No news available")
         else:
-            state["agent_response"] = f"No recent news found for '{query}'."
+            state["agent_responses"]["trend_news"] = f"No recent news found for '{query}'."
             
     except Exception as e:
         logger.error(f"[TrendNews] Failed: {e}")
-        state["agent_response"] = f"Error fetching news: {str(e)}"
+        state["agent_responses"]["trend_news"] = f"Error fetching news: {str(e)}"
         state["error"] = str(e)
     
+    state["visited_intents"].append("trend_news")
     return state
 
 
@@ -402,16 +504,82 @@ async def data_interpreter_node(state: AgentState) -> AgentState:
     state["agent_name"] = "DataInterpreter"
     
     try:
-        # Build educational prompt
-        educational_prompt = """
-        You are a trading education expert. Explain concepts clearly.
+        query_lower = state['user_query'].lower()
+        tool_results = {}
+        tool_context = ""
+
+        # 1. Check for Portfolio/Funds Intent
+        if any(k in query_lower for k in ["funds", "cash", "limit", "margin", "balance", "available"]):
+            res = await mcp_server.call_tool("getLimits", {})
+            state["mcp_tool_calls"].append({"tool": "getLimits", "args": {}, "result": res})
+            if res.get("success"):
+                d = res.get("data", {})
+                tool_context += f"\nFunds/Limits Data:\n- Cash Available: {d.get('cash_available')}\n- Margin Used: {d.get('margin_used')}\n"
+        # 2. Check for Orders Intent
+        if any(k in query_lower for k in ["orders", "rejected", "bids", "history", "executed", "open order", "buy order", "sell order"]):
+            status = None
+            if "rejected" in query_lower: status = "REJECTED"
+            elif "executed" in query_lower or "completed" in query_lower: status = "COMPLETE"
+            elif "open" in query_lower: status = "PENDING"
+                
+            res = await mcp_server.call_tool("getOrders", {"status": status} if status else None)
+            state["mcp_tool_calls"].append({"tool": "getOrders", "args": {"status": status}, "result": res})
+            
+            if res.get("success"):
+                orders = res.get("data", [])
+                order_summary = "\n".join([
+                    f"- {o.get('symbol')} ({o.get('status')}) {o.get('quantity')} qty @ {o.get('price')}"
+                    for o in orders[:5]
+                ])
+                tool_context += f"\nRecent Orders:\n{order_summary if order_summary else 'No recent orders found matching criteria.'}\n"
+
+        # 3. Check for Positions Intent
+        if any(k in query_lower for k in ["positions", "holdings", "profit", "loss", "p&l", "mtm", "portfolio"]):
+            res = await mcp_server.call_tool("getPositions", {})
+            state["mcp_tool_calls"].append({"tool": "getPositions", "args": {}, "result": res})
+            
+            if res.get("success"):
+                positions = res.get("data", [])
+                pos_summary = "\n".join([
+                    f"- {p.get('symbol')}: {p.get('quantity')} qty, P&L: {p.get('pnl')}"
+                    for p in positions
+                ])
+                tool_context += f"\nOpen Positions:\n{pos_summary if pos_summary else 'No open positions.'}\n"
+
+        # 4. Check for WebSocket Status Intent
+        if any(k in query_lower for k in ["feed", "websocket", "connected", "working", "status", "connection"]):
+            res = await mcp_server.call_tool("getWebSocketStatus", {})
+            state["mcp_tool_calls"].append({"tool": "getWebSocketStatus", "args": {}, "result": res})
+            if res.get("success"):
+                d = res.get("data", {})
+                tool_context += f"\nWebSocket Status:\n- Connected: {d.get('connected')}\n- Active Subscriptions: {d.get('active_subscriptions')}\n"
+
+        # 5. Check for Apply Filter Intent
+        if any(k in query_lower for k in ["filter", "only", "mis", "rejected orders"]):
+            # Simulate filter params
+            params = {}
+            if "mis" in query_lower: params["product"] = "MIS"
+            if "rejected" in query_lower: params["status"] = "REJECTED"
+            
+            if params:
+                res = await mcp_server.call_tool("applyFilter", {"params": params})
+                state["mcp_tool_calls"].append({"tool": "applyFilter", "args": {"params": params}, "result": res})
+                if res.get("success"):
+                    tool_context += f"\nApplied Filter: Successfully applied filter for {params}\n"
+
+        # Build educational/analytical prompt with Data
+        educational_prompt = f"""
+        You are a trading assistant. 
+        If specific data is provided below, answer the user's question FACTUALLY using that data.
+        If NO data is provided, explain the concept generally (educational mode).
+        
+        DATA CONTEXT:
+        {tool_context}
         
         STRICT RULES:
-        - Explain WHAT terms mean (definitions)
-        - Use examples where helpful
-        - NO specific trading advice
-        - If explaining calculations, show generic formulas
-        - Be patient and thorough
+        - If data exists, cite it directly (e.g. "You have 2500 cash available").
+        - If user asks about specific orders/positions and you see them, list them.
+        - If explaining terms, be concise.
         """
         
         messages = [
@@ -425,13 +593,14 @@ async def data_interpreter_node(state: AgentState) -> AgentState:
             max_tokens=900
         )
         
-        state["agent_response"] = response.get("choices", [{}])[0].get("message", {}).get("content", "Unable to explain")
+        state["agent_responses"]["data_interpreter"] = response.get("choices", [{}])[0].get("message", {}).get("content", "Unable to explain")
         
     except Exception as e:
         logger.error(f"[DataInterpreter] Failed: {e}")
-        state["agent_response"] = f"Error processing query: {str(e)}"
+        state["agent_responses"]["data_interpreter"] = f"Error processing query: {str(e)}"
         state["error"] = str(e)
     
+    state["visited_intents"].append("data_interpreter")
     return state
 
 
@@ -458,15 +627,16 @@ async def ui_navigation_node(state: AgentState) -> AgentState:
         })
         
         if tool_result.get("success"):
-            state["agent_response"] = f"Navigating to {route}"
+            state["agent_responses"]["ui_navigation"] = f"Navigating to {route}"
         else:
-            state["agent_response"] = "Unable to navigate"
+            state["agent_responses"]["ui_navigation"] = "Unable to navigate"
             
     except Exception as e:
         logger.error(f"[UINavigation] Failed: {e}")
-        state["agent_response"] = f"Navigation error: {str(e)}"
+        state["agent_responses"]["ui_navigation"] = f"Navigation error: {str(e)}"
         state["error"] = str(e)
     
+    state["visited_intents"].append("ui_navigation")
     return state
 
 
@@ -491,14 +661,23 @@ async def debug_agent_node(state: AgentState) -> AgentState:
 
 async def response_assembler_node(state: AgentState) -> AgentState:
     """
-    Assemble final response for user.
-    
-    Formats agent output and adds metadata.
+    Assemble final response for user by combining results from multiple agents.
     """
-    logger.info(f"[ResponseAssembler] Finalizing response from {state.get('agent_name')}")
+    logger.info(f"[ResponseAssembler] Combining responses from {state.get('visited_intents')}")
     
-    # Response is already in agent_response
-    # Add any formatting if needed
+    all_responses = []
+    for intent_name in state.get("visited_intents", []):
+        resp = state["agent_responses"].get(intent_name)
+        if resp:
+            all_responses.append(resp)
+    
+    if not all_responses:
+        state["agent_response"] = "I processed your request but couldn't generate a specific response."
+    else:
+        state["agent_response"] = "\n\n---\n\n".join(all_responses)
+    
+    # Use first one as primary name
+    state["agent_name"] = state["visited_intents"][0] if state["visited_intents"] else "Orchestrator"
     
     return state
 
@@ -525,25 +704,25 @@ async def persistence_node(state: AgentState) -> AgentState:
     return state
 
 
-# ==========================
-# Routing Logic
-# ==========================
+def route_after_agent(state: AgentState) -> str:
+    """
+    Determine next intent or go to assembler.
+    """
+    pending = [i for i in state.get("intents", []) if i not in state.get("visited_intents", [])]
+    
+    if not pending:
+        return "response_assembler"
+    
+    return pending[0]
 
 def route_after_intent(state: AgentState) -> str:
     """
-    Route to appropriate agent based on intent.
+    Route to first agent.
     """
-    intent = state.get("intent", "data_interpreter")
+    if not state.get("intents"):
+        return "data_interpreter"
     
-    routing_map = {
-        "market_explainer": "market_explainer",
-        "trend_news": "trend_news",
-        "data_interpreter": "data_interpreter",
-        "ui_navigation": "ui_navigation",
-        "debug": "debug_agent"
-    }
-    
-    return routing_map.get(intent, "data_interpreter")
+    return state["intents"][0]
 
 
 # ==========================
@@ -572,7 +751,7 @@ def build_agent_graph() -> StateGraph:
     # Set entry point
     graph.set_entry_point("intent_classifier")
     
-    # Add conditional routing after intent classification
+    # Intent → First Agent
     graph.add_conditional_edges(
         "intent_classifier",
         route_after_intent,
@@ -585,9 +764,20 @@ def build_agent_graph() -> StateGraph:
         }
     )
     
-    # All agents flow to response assembler
+    # Agent → Next Agent or Response Assembler
     for agent in ["market_explainer", "trend_news", "data_interpreter", "ui_navigation", "debug_agent"]:
-        graph.add_edge(agent, "response_assembler")
+        graph.add_conditional_edges(
+            agent,
+            route_after_agent,
+            {
+                "market_explainer": "market_explainer",
+                "trend_news": "trend_news",
+                "data_interpreter": "data_interpreter",
+                "ui_navigation": "ui_navigation",
+                "debug_agent": "debug_agent",
+                "response_assembler": "response_assembler"
+            }
+        )
     
     # Response assembler → Persistence → END
     graph.add_edge("response_assembler", "persistence")

@@ -10,18 +10,30 @@ import { ShieldCheck, Zap, Info, ArrowDownLeft, ArrowUpRight } from 'lucide-reac
 interface OrderFormProps {
     symbol: string;
     onOrderPlaced?: () => void;
+    initialLtp?: number;
 }
 
-export const OrderForm: React.FC<OrderFormProps> = ({ symbol, onOrderPlaced }) => {
+export const OrderForm: React.FC<OrderFormProps> = ({ symbol, onOrderPlaced, initialLtp }) => {
     const [transactionType, setTransactionType] = useState<'BUY' | 'SELL'>('BUY');
     const [productType, setProductType] = useState('MIS');
     const [orderType, setOrderType] = useState('LIMIT');
     const [quantity, setQuantity] = useState(1);
     const [price, setPrice] = useState(0);
     const [amoEnabled, setAmoEnabled] = useState(false);
+
     const [loading, setLoading] = useState(false);
     const [funds, setFunds] = useState('0.00');
-    const [ltp, setLtp] = useState(0);
+    const [ltp, setLtp] = useState(initialLtp || 0);
+
+    // Update local state if initialLtp changes (e.g. late snapshot load)
+    // Update local state if initialLtp changes (e.g. late snapshot load)
+    useEffect(() => {
+        if (initialLtp && initialLtp > 0) {
+            // Only update if we don't have a live value yet (or if live value is 0)
+            setLtp(prevLtp => prevLtp === 0 ? initialLtp : prevLtp);
+            setPrice(prevPrice => prevPrice === 0 ? initialLtp : prevPrice);
+        }
+    }, [initialLtp]);
 
     useEffect(() => {
         const unsubscribe = wsService.subscribeQuotes(symbol, (data) => {

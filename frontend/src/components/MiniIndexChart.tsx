@@ -6,9 +6,10 @@ interface MiniIndexChartProps {
     indexName: string;
     tradingSymbol: string;
     color: string;
+    staticData?: { time: string; value: number }[];
 }
 
-const MiniIndexChart: React.FC<MiniIndexChartProps> = ({ indexName, tradingSymbol, color }) => {
+const MiniIndexChart: React.FC<MiniIndexChartProps> = ({ indexName, tradingSymbol, color, staticData }) => {
     const chartContainerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
     const seriesRef = useRef<ISeriesApi<'Line'> | null>(null);
@@ -35,7 +36,7 @@ const MiniIndexChart: React.FC<MiniIndexChartProps> = ({ indexName, tradingSymbo
                 visible: false,
             },
             timeScale: {
-                visible: false,
+                visible: staticData ? true : false,
             },
             crosshair: {
                 vertLine: { visible: false },
@@ -53,41 +54,56 @@ const MiniIndexChart: React.FC<MiniIndexChartProps> = ({ indexName, tradingSymbo
         chartRef.current = chart;
         seriesRef.current = series;
 
-        // Connect to WebSocket
-        const ws = new WebSocket(`ws://localhost:8000/ws/market/${tradingSymbol}`);
-        wsRef.current = ws;
-
-        const dataPoints: LineData[] = [];
-        let openPrice = 0;
-
-        ws.onmessage = (event) => {
-            try {
-                const tick = JSON.parse(event.data);
-                if (tick.ltp) {
-                    const time = Math.floor(Date.now() / 1000) as any;
-                    dataPoints.push({ time, value: tick.ltp });
-
-                    // Keep last 50 points
-                    if (dataPoints.length > 50) {
-                        dataPoints.shift();
-                    }
-
-                    series.setData(dataPoints);
-                    setCurrentValue(tick.ltp.toFixed(2));
-
-                    if (!openPrice && tick.open) {
-                        openPrice = tick.open;
-                    }
-
-                    if (openPrice) {
-                        const change = ((tick.ltp - openPrice) / openPrice) * 100;
-                        setPercentChange(change);
-                    }
-                }
-            } catch (err) {
-                console.error('Index chart tick parse error:', err);
+        if (staticData) {
+            // Static Mode: Use data from agent
+            const formattedData = staticData.map(d => ({
+                time: d.time,
+                value: d.value
+            }));
+            series.setData(formattedData as any);
+            if (formattedData.length > 0) {
+                setCurrentValue(formattedData[formattedData.length - 1].value.toFixed(2));
+                const open = formattedData[0].value;
+                const close = formattedData[formattedData.length - 1].value;
+                setPercentChange(((close - open) / open) * 100);
             }
-        };
+            chart.timeScale().fitContent();
+        } else {
+            // Live Mode: Connect to WebSocket
+            const ws = new WebSocket(`ws://localhost:8000/ws/market/${tradingSymbol}`);
+            wsRef.current = ws;
+
+            const dataPoints: LineData[] = [];
+            let openPrice = 0;
+
+            ws.onmessage = (event) => {
+                try {
+                    const tick = JSON.parse(event.data);
+                    if (tick.ltp) {
+                        const time = Math.floor(Date.now() / 1000) as any;
+                        dataPoints.push({ time, value: tick.ltp });
+
+                        if (dataPoints.length > 50) {
+                            dataPoints.shift();
+                        }
+
+                        series.setData(dataPoints);
+                        setCurrentValue(tick.ltp.toFixed(2));
+
+                        if (!openPrice && tick.open) {
+                            openPrice = tick.open;
+                        }
+
+                        if (openPrice) {
+                            const change = ((tick.ltp - openPrice) / openPrice) * 100;
+                            setPercentChange(change);
+                        }
+                    }
+                } catch (err) {
+                    console.error('Index chart tick parse error:', err);
+                }
+            };
+        }
 
         // Handle resize
         const handleResize = () => {
@@ -99,10 +115,12 @@ const MiniIndexChart: React.FC<MiniIndexChartProps> = ({ indexName, tradingSymbo
 
         return () => {
             window.removeEventListener('resize', handleResize);
-            ws.close();
+            if (wsRef.current) {
+                wsRef.current.close();
+            }
             chart.remove();
         };
-    }, [tradingSymbol, color]);
+    }, [tradingSymbol, color, staticData]);
 
     return (
         <div style={{

@@ -39,6 +39,7 @@ class MCPServer:
             "searchNews": (SearchNewsInput, self.tools.search_news),
             "navigateTo": (NavigateToInput, self.tools.navigate_to),
             "applyFilter": (ApplyFilterInput, self.tools.apply_filter),
+            "generateChart": (GenerateChartInput, self.tools.generate_chart),
         }
     
     async def call_tool(
