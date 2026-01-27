@@ -36,12 +36,11 @@ A full-stack trading application integrating **Kotak Neo API** with an **intelli
 
 ## ✨ Key Features
 
-### 🧠 **AI-Powered Agent System (Hybrid Architecture)**
-- **Market Explainer**: Real-Time analysis with **Dynamic Symbol Resolution** (Supports ALL NSE/BSE stocks).
-- **Trend News Analyst**: **Zero-Hallucination** news aggregation using Rule-Based formatting.
-- **Data Interpreter**: Context-aware education (Funds, Orders, Terms).
-- **UI Navigator**: Intelligent voice-like navigation commands.
-- **Powered by Groq**: Ultra-fast inference using Llama 3.3 70B (Free tier optimized).
+### 🧠 **AI-Powered Agent System**
+- **Market Explainer**: Real-time market analysis with live data
+- **Trend News Analyst**: News aggregation and summarization  
+- **Data Interpreter**: Trading education and concept explanations
+- **UI Navigator**: Voice-like navigation commands
 
 ### 📊 **Trading Platform**
 - Real-time market quotes (NIFTY, SENSEX, stocks)
@@ -78,6 +77,8 @@ graph TB
     
     ME --> MCP[MCP Server]
     TN --> MCP
+    DI --> MCP
+    UI --> MCP
     
     MCP --> Tools[10 Read-Only Tools]
     Tools --> Market[getQuotes<br/>getIndexQuotes<br/>getMarketDepth]
