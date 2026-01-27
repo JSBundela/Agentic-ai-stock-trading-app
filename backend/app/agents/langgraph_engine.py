@@ -14,6 +14,7 @@ from app.mcp import mcp_server
 from app.agents.core import llm_client, AgentModels, format_as_bullets
 from app.database.memory_repository import MemoryRepository
 from app.core.logger import logger
+from app.utils.scrip_utils import get_instrument_token
 
 # Initialize memory repository
 memory_repository = MemoryRepository()
@@ -214,24 +215,31 @@ async def intent_classifier_node(state: AgentState) -> AgentState:
 
         # Extract symbol from query
         if "market_explainer" in intents:
-            if "nifty 50" in query_lower or ("nifty" in query_lower and "bank" not in query_lower):
-                parameters["symbol"] = "NIFTY 50"
-            elif "nifty bank" in query_lower:
-                parameters["symbol"] = "NIFTY BANK"
-            elif "sensex" in query_lower:
-                parameters["symbol"] = "SENSEX"
-            elif "reliance" in query_lower:
-                parameters["symbol"] = "RELIANCE"
-            elif "hdfc" in query_lower:
-                parameters["symbol"] = "HDFCBANK"
-            elif "tata" in query_lower:
-                parameters["symbol"] = "TATAMOTORS"
-            elif "infy" in query_lower or "infosys" in query_lower:
-                parameters["symbol"] = "INFY"
-            elif "icici" in query_lower:
-                parameters["symbol"] = "ICICIBANK"
-            elif "sbi" in query_lower:
-                parameters["symbol"] = "SBIN"
+            # 1. Trust LLM extracted symbol first
+            symbol = parameters.get("symbol")
+            
+            # 2. If valid symbol found, try to resolve it to a standard token
+            if symbol:
+                # Handle indices explicitly if needed, otherwise general lookup
+                resolved_token = get_instrument_token(symbol)
+                if resolved_token:
+                     parameters["symbol"] = resolved_token
+                     logger.info(f"[IntentClassifier] Resolved {symbol} -> {resolved_token}")
+                else:
+                     # Keep original if resolution fails (might be an index name like "NIFTY 50" which isn't in scrip master sometimes)
+                     # Or apply default prefix if it looks like a stock
+                     if "nifty" not in symbol.lower() and "sensex" not in symbol.lower():
+                         # Try adding exchange prefix just in case API handles it
+                         parameters["symbol"] = f"nse_cm|{symbol}"
+            
+            # 3. Fallback: If LLM missed it but we found keywords (Legacy/Safety net)
+            elif not symbol:
+                if "nifty 50" in query_lower or ("nifty" in query_lower and "bank" not in query_lower):
+                    parameters["symbol"] = "NIFTY 50"
+                elif "nifty bank" in query_lower:
+                    parameters["symbol"] = "NIFTY BANK"
+                elif "sensex" in query_lower:
+                    parameters["symbol"] = "SENSEX"
         
         # News keywords
         news_keywords = ["news", "latest", "updates", "headlines", "reports", "trending", "current affairs"]
@@ -453,43 +461,27 @@ async def trend_news_node(state: AgentState) -> AgentState:
         if tool_result.get("success") and tool_result.get("count") > 0:
             articles = tool_result.get("data", [])
             
-            # Format news for LLM
-            news_context = "\n\n".join([
-                f"**{art['title']}**\n{art['snippet']}\nSource: {art['source']}"
-                for art in articles[:3]
-            ])
+            # Convert Pydantic models to dicts if needed
+            if articles and hasattr(articles[0], 'model_dump'):
+                articles = [art.model_dump() for art in articles]
             
-            # Generate summary with safety constraints
-            safety_prompt = """
-            You are a financial news analyst. Summarize news objectively.
+            logger.info(f"[TrendNews] Processing {len(articles)} news articles")
             
-            STRICT RULES:
-            - Summarize what happened (facts only)
-            - NO predictions or forecasts
-            - NO recommendations
-            - Use phrases like "Reports indicate...", "News suggests..."
-            - Be neutral and factual
-            - IMPORTANT: You ARE able to show news summaries and headlines. NEVER tell the user you "cannot search the internet".
-            """
+            # Format news as bullet points (simple, reliable display)
+            news_items = []
+            for art in articles[:5]:  # Show top 5
+                title = art.get('title', 'No title')
+                source = art.get('source', 'Unknown')
+                snippet = art.get('snippet', '')[:150]  # First 150 chars
+                
+                news_items.append(f"**{title}**")
+                if snippet:
+                    news_items.append(f"  {snippet}...")
+                news_items.append(f"  *Source: {source}*")
+                news_items.append("")  # Blank line
             
-            messages = [
-                {"role": "system", "content": safety_prompt},
-            ]
-            
-            # Add context from history
-            if state.get("chat_history"):
-                for msg in state["chat_history"][-2:]:
-                    messages.append({"role": msg["role"], "content": msg["content"]})
-                    
-            messages.append({"role": "user", "content": f"Query: {state['user_query']}\n\nNews Articles:\n{news_context}"})
-            
-            response = await llm_client.chat_completion(
-                messages=messages,
-                model=AgentModels.TREND_ANALYSIS,
-                max_tokens=900
-            )
-            
-            state["agent_responses"]["trend_news"] = response.get("choices", [{}])[0].get("message", {}).get("content", "No news available")
+            response_text = "\n".join(news_items)
+            state["agent_responses"]["trend_news"] = response_text
         else:
             state["agent_responses"]["trend_news"] = f"No recent news found for '{query}'."
             

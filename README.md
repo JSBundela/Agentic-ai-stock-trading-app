@@ -36,11 +36,12 @@ A full-stack trading application integrating **Kotak Neo API** with an **intelli
 
 ## ✨ Key Features
 
-### 🧠 **AI-Powered Agent System**
-- **Market Explainer**: Real-time market analysis with live data
-- **Trend News Analyst**: News aggregation and summarization  
-- **Data Interpreter**: Trading education and concept explanations
-- **UI Navigator**: Voice-like navigation commands
+### 🧠 **AI-Powered Agent System (Hybrid Architecture)**
+- **Market Explainer**: Real-Time analysis with **Dynamic Symbol Resolution** (Supports ALL NSE/BSE stocks).
+- **Trend News Analyst**: **Zero-Hallucination** news aggregation using Rule-Based formatting.
+- **Data Interpreter**: Context-aware education (Funds, Orders, Terms).
+- **UI Navigator**: Intelligent voice-like navigation commands.
+- **Powered by Groq**: Ultra-fast inference using Llama 3.3 70B (Free tier optimized).
 
 ### 📊 **Trading Platform**
 - Real-time market quotes (NIFTY, SENSEX, stocks)
@@ -128,7 +129,8 @@ sequenceDiagram
 
 ### Backend
 - **Framework**: FastAPI (Python 3.12)
-- **AI/ML**: LangGraph, LangChain, OpenRouter
+- **AI Engine**: LangGraph + **Groq (Llama 3.3 70B)**
+- **Agent Architecture**: Hybrid (LLM + Deterministic Rules)
 - **Agent System**: MCP (Model Context Protocol)
 - **Database**: SQLite (with async support)
 - **WebSocket**: Kotak HSM Protocol
@@ -157,7 +159,7 @@ sequenceDiagram
 - Python 3.12+
 - Node.js 18+
 - Kotak Neo API Credentials
-- OpenRouter API Key
+- **Groq API Key** (Free)
 
 ### 1. Clone Repository
 
@@ -316,8 +318,8 @@ MOBILE_NUMBER=9876543210
 UCC=your_client_code
 MPIN=your_6_digit_mpin
 
-# AI/ML
-OPENROUTER_API_KEY=your_openrouter_key
+# AI/ML (Groq)
+GROQ_API_KEY=your_groq_api_key
 
 # Database
 DATABASE_URL=sqlite:///./trading.db

@@ -47,11 +47,25 @@ class MCPTools:
             quotes = []
             errors = []
             
-            # market_service.get_quotes returns a list directly
-            if isinstance(result, list):
+            # Kotak API returns dict for single quote, list for multiple
+            if isinstance(result, dict):
+                # Single quote response
+                if 'fault' in result or 'error' in result:
+                    errors.append("Invalid response format")
+                else:
+                    quotes.append(QuoteData(
+                        symbol=result.get("tradingSymbol", result.get("token", "UNKNOWN")),
+                        ltp=result.get("ltp"),
+                        change=result.get("netChange") or result.get("change"),
+                        percent_change=result.get("percentChange") or result.get("pChange"),
+                        volume=result.get("volume"),
+                        timestamp=result.get("ltt")
+                    ))
+            elif isinstance(result, list):
+                # Multiple quotes response
                 for quote in result:
                     quotes.append(QuoteData(
-                        symbol=quote.get("tradingSymbol", "UNKNOWN"),
+                        symbol=quote.get("tradingSymbol", quote.get("token", "UNKNOWN")),
                         ltp=quote.get("ltp"),
                         change=quote.get("netChange") or quote.get("change"),
                         percent_change=quote.get("percentChange") or quote.get("pChange"),
