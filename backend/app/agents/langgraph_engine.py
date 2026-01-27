@@ -265,21 +265,29 @@ async def intent_classifier_node(state: AgentState) -> AgentState:
             if "data_interpreter" in intents and len(intents) > 1:
                 intents.remove("data_interpreter")
         
-        # Navigation destinations
-        nav_dest = ["portfolio", "orders", "order book", "orderbook", "funds", "dashboard", "home", "holdings", "market watch", "marketwatch"] 
+        # Navigation destinations (expanded to match ALL sidebar tabs)
+        nav_dest = [
+            "portfolio", "orders", "order book", "orderbook", "order entry", 
+            "funds", "dashboard", "home", "holdings", "positions", 
+            "market watch", "marketwatch", "place order", "trading"
+        ] 
         
-        # Map destinations to routes (MUST match MCP NavigateToInput schema)
+        # Map destinations to routes (MUST match actual React Router paths)
         route_map = {
-            "portfolio": "/holdings",
-            "orders": "/orders",
-            "order book": "/orders",
-            "orderbook": "/orders",
-            "funds": "/funds",
-            "dashboard": "/dashboard",
-            "home": "/dashboard",
-            "holdings": "/holdings",
-            "market watch": "/market-watch",
-            "marketwatch": "/market-watch"
+            "portfolio": "/portfolio",       # Portfolio page
+            "holdings": "/portfolio",        # Alias for portfolio
+            "positions": "/portfolio",       # Alias for portfolio
+            "orders": "/order-book",         # Order Book page
+            "order book": "/order-book",     # Order Book
+            "orderbook": "/order-book",      # Order Book (no space)
+            "order entry": "/order-entry",   # Place Order page
+            "place order": "/order-entry",   # Alias for order entry
+            "trading": "/order-entry",       # Alias for order entry
+            "funds": "/funds",               # Funds & Limits
+            "dashboard": "/dashboard",       # Main Dashboard
+            "home": "/dashboard",            # Alias for dashboard
+            "market watch": "/market-watch", # Market Watch (if exists)
+            "marketwatch": "/market-watch"   # Market Watch (no space)
         }
         
         # Check for navigation intent

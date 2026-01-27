@@ -6,10 +6,11 @@ import re
 from typing import List, Dict, Any, Optional
 
 class AgentModels:
-    ORCHESTRATOR = "anthropic/claude-3.5-sonnet" # Powerful reasoning
-    MARKET_EXPLAINER = "meta-llama/llama-3.3-70b-instruct"   # Reliable and fast
-    TREND_ANALYSIS = "meta-llama/llama-3.1-70b-instruct"
-    UI_NAVIGATION = "meta-llama/llama-3.1-8b-instruct" # Fast/Cheap
+    # Using Groq models (FREE & FAST!)
+    ORCHESTRATOR = "llama-3.3-70b-versatile"     # Fast reasoning
+    MARKET_EXPLAINER = "llama-3.3-70b-versatile" # Analysis
+    TREND_ANALYSIS = "llama-3.1-70b-versatile"   # News
+    UI_NAVIGATION = "llama-3.1-8b-instant"       # Ultra-fast navigation
 
 def format_as_bullets(text: str) -> str:
     """
@@ -36,29 +37,44 @@ def format_as_bullets(text: str) -> str:
 class LLMClient:
     def __init__(self):
         self.settings = get_settings()
-        self.api_key = self.settings.OPENROUTER_API_KEY
-        self.base_url = "https://openrouter.ai/api/v1"
+        # Check for Groq API key (FREE & FAST)
+        self.groq_key = self.settings.GROQ_API_KEY if hasattr(self.settings, 'GROQ_API_KEY') else None
+        self.openrouter_key = self.settings.OPENROUTER_API_KEY
+        
+        if self.groq_key:
+            logger.info("⚡ Using Groq API (FREE & BLAZINGLY FAST)")
+            self.provider = "groq"
+            self.api_key = self.groq_key
+            self.base_url = "https://api.groq.com/openai/v1"
+        else:
+            logger.warning("⚠️ GROQ_API_KEY not found, falling back to OpenRouter (requires credits)")
+            self.provider = "openrouter"
+            self.api_key = self.openrouter_key
+            self.base_url = "https://openrouter.ai/api/v1"
         
     async def chat_completion(self, 
                             messages: List[Dict[str, str]], 
                             model: str,
                             temperature: float = 0.7,
-                            max_tokens: int = 300,  # Reduced from 500 to force brevity
+                            max_tokens: int = 300,
                             json_mode: bool = False) -> Dict[str, Any]:
         
         import time
         start_time = time.time()
         
         if not self.api_key:
-            logger.error("OpenRouter API Key missing")
-            raise ValueError("OpenRouter API Key is required")
+            logger.error("No API Key configured (neither GROQ nor OPENROUTER)")
+            return {"error": "API Key missing"}
         
+        # Groq uses OpenAI-compatible format, so same call works for both!
         headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "HTTP-Referer": "http://localhost:3000",
-            "X-Title": "AgenticAI Trading App",
             "Content-Type": "application/json"
         }
+        
+        if self.provider == "openrouter":
+            headers["HTTP-Referer"] = "http://localhost:3000"
+            headers["X-Title"] = "AgenticAI Trading App"
         
         payload = {
             "model": model,
@@ -83,7 +99,8 @@ class LLMClient:
                 # Log metrics
                 elapsed = time.time() - start_time
                 tokens_used = result.get("usage", {}).get("total_tokens", 0)
-                logger.info(f"[LLM] Model: {model} | Tokens: {tokens_used} | Time: {elapsed:.2f}s")
+                provider_name = "Groq" if self.provider == "groq" else "OpenRouter"
+                logger.info(f"[LLM] {provider_name} {model} | Tokens: {tokens_used} | Time: {elapsed:.2f}s")
                 
                 return result
                 

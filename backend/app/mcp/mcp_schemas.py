@@ -74,12 +74,15 @@ class SearchNewsInput(BaseModel):
 class NavigateToInput(BaseModel):
     """Input schema for navigateTo tool."""
     route: Literal[
-        "/dashboard",
-        "/funds",
-        "/orders",
-        "/positions",
-        "/holdings",
-        "/market-watch"
+        "/dashboard",        # Main Dashboard
+        "/portfolio",        # Portfolio/Holdings page
+        "/funds",            # Funds & Limits
+        "/order-book",       # Order Book (view orders)
+        "/order-entry",      # Place Order page
+        "/orders",           # Alias for order-book
+        "/positions",        # Alias for portfolio
+        "/holdings",         # Alias for portfolio
+        "/market-watch"      # Market Watch
     ] = Field(
         ...,
         description="Target route for navigation"

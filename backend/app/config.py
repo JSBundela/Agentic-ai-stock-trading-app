@@ -17,7 +17,8 @@ class Settings(BaseSettings):
     KOTAK_TRADE_API_URL: str = "https://mis.kotaksecurities.com"
 
     # Agentic AI
-    OPENROUTER_API_KEY: str | None = None
+    GROQ_API_KEY: str | None = None  # FREE Groq API
+    OPENROUTER_API_KEY: str | None = None  # Fallback (requires credits)
 
     
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
