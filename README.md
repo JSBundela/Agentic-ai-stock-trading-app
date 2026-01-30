@@ -1,6 +1,6 @@
 # 🤖 Agentic AI Stock Trading Platform
 
-> **Production-ready algorithmic trading platform with AI-powered market analysis using LangGraph & MCP (Model Context Protocol)**
+> **Trading platform with AI-powered market analysis using LangGraph & MCP (Model Context Protocol)**
 
 [![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.100+-green.svg)](https://fastapi.tiangolo.com)
