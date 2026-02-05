@@ -32,6 +32,14 @@ A full-stack trading application integrating **Kotak Neo API** with an **intelli
 
 ![Agent Interface](./docs/screenshot_7.png)
 
+| Tools | Chat |
+|:---:|:---:|
+| ![Tools](./docs/screenshot_8.png) | ![Chat](./docs/screenshot_9.png) |
+
+| AI Analysis |
+|:---:|
+| ![AI Analysis](./docs/screenshot_10.png) |
+
 ---
 
 ## ✨ Key Features
