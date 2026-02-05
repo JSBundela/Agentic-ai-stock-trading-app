@@ -30,7 +30,6 @@ A full-stack trading application integrating **Kotak Neo API** with an **intelli
 |:---:|:---:|
 | ![Orders](./docs/screenshot_3.png) | ![Order modification](./docs/screenshot_4.png) |
 
-![Agent Interface](./docs/screenshot_7.png)
 
 | Tools | Chat |
 |:---:|:---:|
